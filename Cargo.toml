@@ -1,6 +1,32 @@
-[package]
-name = "commonui"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+resolver = "2"
+members = [
+    "gui-core",
+    "gui-reactive", 
+    "gui-layout",
+    "gui-render",
+    "commonui-examples"
+]
 
-[dependencies]
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["CommonUI Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/commonui/commonui"
+
+[workspace.dependencies]
+# Core rendering and windowing
+vello = "0.1"
+wgpu = "0.19"
+winit = "0.29"
+
+# Layout and text
+taffy = "0.4"
+cosmic-text = "0.10"
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Development
+criterion = "0.5"

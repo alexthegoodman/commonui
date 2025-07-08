@@ -1,0 +1,11 @@
+[package]
+name = "gui-layout"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gui-reactive = { path = "../gui-reactive" }
+taffy = { workspace = true }

@@ -1,0 +1,13 @@
+[package]
+name = "gui-render"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gui-reactive = { path = "../gui-reactive" }
+vello = { workspace = true }
+wgpu = { workspace = true }
+cosmic-text = { workspace = true }

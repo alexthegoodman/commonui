@@ -16,15 +16,15 @@ Libraries:
 
 Setup:
 
-- Set up core crates: gui-core, gui-reactive, gui-layout, gui-render
-- Configure development dependencies (criterion for benchmarks, etc.)
+- ~~Set up core crates: gui-core, gui-reactive, gui-layout, gui-render~~
+- ~~Configure development dependencies (criterion for benchmarks, etc.)~~
 
 Core Dependencies Integration:
 
-- Add and configure Vello with wgpu backend
-- Integrate Taffy for layout engine
-- Add cosmic-text for text rendering
-- Set up tokio for async runtime (channels, tasks)
+- ~~Add and configure Vello with wgpu backend~~
+- ~~Integrate Taffy for layout engine~~
+- ~~Add cosmic-text for text rendering~~
+- ~~Set up tokio for async runtime (channels, tasks)~~
 - Configure winit for window management and input handling
 
 Reactive System Foundation

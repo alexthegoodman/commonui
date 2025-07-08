@@ -1,0 +1,14 @@
+[package]
+name = "gui-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gui-reactive = { path = "../gui-reactive" }
+gui-layout = { path = "../gui-layout" }
+gui-render = { path = "../gui-render" }
+tokio = { workspace = true }
+winit = { workspace = true }
