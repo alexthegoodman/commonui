@@ -25,15 +25,15 @@ Core Dependencies Integration:
 - ~~Integrate Taffy for layout engine~~
 - ~~Add cosmic-text for text rendering~~
 - ~~Set up tokio for async runtime (channels, tasks)~~
-- Configure winit for window management and input handling
+- ~~Configure winit for window management and input handling~~
 
 Reactive System Foundation
 
 Signal System:
 
-- Implement basic Signal<T> type with thread-safe updates
-- Create Computed<T> for derived values
-- Build Effect system for side effects
+- ~~Implement basic Signal<T> type with thread-safe updates~~
+- ~~Create Computed<T> for derived values~~
+- ~~Build Effect system for side effects~~
 - Add signal batching and frame-synchronized updates
 - Implement weak reference cleanup for memory management
 
