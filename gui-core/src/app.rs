@@ -6,6 +6,7 @@ use winit::{
     platform::scancode::PhysicalKeyExtScancode,
     window::{Window, WindowId, WindowBuilder},
 };
+use gui_reactive::{global_frame_scheduler, FrameContext};
 use crate::Event;
 
 pub struct App {
@@ -49,7 +50,14 @@ impl App {
                             // Handle rendering for specific window
                             if let Some(window) = &self.window {
                                 if window.id() == window_id {
+                                    // Begin frame with frame synchronization
+                                    let frame_context = global_frame_scheduler().begin_frame();
+                                    
                                     // Render frame
+                                    self.render_frame();
+                                    
+                                    // End frame - this will flush any batched updates
+                                    global_frame_scheduler().end_frame(frame_context);
                                 }
                             }
                         }
@@ -122,5 +130,10 @@ impl App {
 
     fn handle_device_event(&self, _device_id: DeviceId, _event: DeviceEvent) {
         // Handle global device events if needed
+    }
+
+    fn render_frame(&self) {
+        // Placeholder for actual rendering logic
+        // This will be integrated with the gui-render crate when widgets are implemented
     }
 }

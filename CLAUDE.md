@@ -34,15 +34,15 @@ Signal System:
 - ~~Implement basic Signal<T> type with thread-safe updates~~
 - ~~Create Computed<T> for derived values~~
 - ~~Build Effect system for side effects~~
-- Add signal batching and frame-synchronized updates
-- Implement weak reference cleanup for memory management
+- ~~Add signal batching and frame-synchronized updates~~
+- ~~Implement weak reference cleanup for memory management~~
 
 Threading Architecture:
 
-- Design message passing between main/UI threads
-- Create thread-safe signal propagation system
-- Implement frame-synchronized state updates
-- Add proper shutdown and cleanup mechanisms
+- ~~Design message passing between main/UI threads~~
+- ~~Create thread-safe signal propagation system~~
+- ~~Implement frame-synchronized state updates~~
+- ~~Add proper shutdown and cleanup mechanisms~~
 
 Layout and Rendering Pipeline
 
