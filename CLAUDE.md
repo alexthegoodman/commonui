@@ -48,14 +48,14 @@ Layout and Rendering Pipeline
 
 Layout Integration:
 
-- Wrap Taffy with reactive bindings
-- Create layout invalidation system tied to signals
-- Implement layout caching and dirty region tracking
-- Add support for common layout patterns (flexbox, grid)
+- ~~Wrap Taffy with reactive bindings~~
+- ~~Create layout invalidation system tied to signals~~
+- ~~Implement layout caching and dirty region tracking~~
+- ~~Add support for common layout patterns (flexbox, grid)~~
 
-Vello Rendering Backend:
+Vello Rendering Backend (double check what exists or has been started):
 
-- Create VelloRenderer abstraction over raw Vello
+- Create VelloRenderer abstraction over raw Vello (already exists or started)
 - Implement scene caching for static UI elements
 - Add batching system for dynamic updates
 - Create primitive types (rectangles, text, images, shadows)

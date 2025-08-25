@@ -1,5 +1,8 @@
 use taffy::{TaffyTree, NodeId, Layout, Style, Size, AvailableSpace};
 use std::collections::HashMap;
+use gui_reactive::{Signal, Effect, global_frame_scheduler};
+use std::sync::{Arc, RwLock};
+use crate::invalidation::{LayoutInvalidationSystem, InvalidationType};
 
 pub struct ReactiveLayout {
     taffy: TaffyTree,
@@ -111,5 +114,178 @@ impl ReactiveLayout {
             self.dirty_nodes.retain(|&id| id != node_id);
         }
         Ok(())
+    }
+}
+
+/// A reactive wrapper around ReactiveLayout that integrates with the signal system
+pub struct ReactiveLayoutManager {
+    layout: Arc<RwLock<ReactiveLayout>>,
+    layout_signal: Signal<bool>, // Triggers when layout changes
+    invalidation_system: LayoutInvalidationSystem, // Handles invalidation propagation
+}
+
+impl ReactiveLayoutManager {
+    pub fn new() -> Self {
+        let layout = Arc::new(RwLock::new(ReactiveLayout::new()));
+        let layout_signal = Signal::new(false);
+        let invalidation_system = LayoutInvalidationSystem::new();
+
+        // Create an effect that schedules layout computation when nodes are invalidated
+        let _layout_clone = layout.clone();
+        let layout_signal_clone = layout_signal.clone();
+        let dirty_nodes_signal = invalidation_system.dirty_nodes_signal();
+        
+        Effect::new(move || {
+            let dirty_nodes = dirty_nodes_signal.get();
+            if !dirty_nodes.is_empty() {
+                // Schedule layout computation for next frame
+                global_frame_scheduler().schedule_for_next_frame(Box::new(move || {
+                    // This will be handled by the layout computation system
+                }));
+                
+                // Mark layout as changed
+                layout_signal_clone.set(true);
+            }
+        });
+
+        Self {
+            layout,
+            layout_signal,
+            invalidation_system,
+        }
+    }
+
+    /// Create a reactive node with a style signal
+    pub fn create_reactive_node(&self, node_id: u64, style_signal: Signal<Style>) -> Result<(), taffy::TaffyError> {
+        let initial_style = style_signal.get();
+        
+        // Create the node with initial style
+        {
+            let mut layout = self.layout.write().unwrap();
+            layout.create_node(node_id, initial_style)?;
+        }
+
+        // Create an effect that updates the node style when the signal changes
+        let layout_clone = self.layout.clone();
+        let invalidation_system_clone = self.invalidation_system.clone();
+        Effect::new(move || {
+            let new_style = style_signal.get();
+            if let Ok(mut layout) = layout_clone.write() {
+                let _ = layout.update_node_style(node_id, new_style);
+                
+                // Trigger invalidation through the invalidation system
+                invalidation_system_clone.invalidate_node(node_id, InvalidationType::Style);
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Create a reactive node with children and a style signal
+    pub fn create_reactive_node_with_children(
+        &self,
+        node_id: u64,
+        style_signal: Signal<Style>,
+        children: Vec<u64>
+    ) -> Result<(), taffy::TaffyError> {
+        let initial_style = style_signal.get();
+        
+        // Create the node with initial style and children
+        {
+            let mut layout = self.layout.write().unwrap();
+            layout.create_node_with_children(node_id, initial_style, children)?;
+        }
+
+        // Create an effect that updates the node style when the signal changes
+        let layout_clone = self.layout.clone();
+        let invalidation_system_clone = self.invalidation_system.clone();
+        Effect::new(move || {
+            let new_style = style_signal.get();
+            if let Ok(mut layout) = layout_clone.write() {
+                let _ = layout.update_node_style(node_id, new_style);
+                
+                // Trigger invalidation through the invalidation system
+                invalidation_system_clone.invalidate_node(node_id, InvalidationType::Style);
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Set the root node for layout computation
+    pub fn set_root_node(&self, node_id: u64) {
+        let mut layout = self.layout.write().unwrap();
+        layout.set_root_node(node_id);
+    }
+
+    /// Add a child to a parent node
+    pub fn add_child(&self, parent_id: u64, child_id: u64) -> Result<(), taffy::TaffyError> {
+        let mut layout = self.layout.write().unwrap();
+        layout.add_child(parent_id, child_id)?;
+        
+        // Register parent-child relationship and trigger invalidation
+        self.invalidation_system.register_parent_child(parent_id, child_id);
+        self.invalidation_system.invalidate_node(parent_id, InvalidationType::Children);
+        
+        Ok(())
+    }
+
+    /// Remove a child from a parent node
+    pub fn remove_child(&self, parent_id: u64, child_id: u64) -> Result<(), taffy::TaffyError> {
+        let mut layout = self.layout.write().unwrap();
+        layout.remove_child(parent_id, child_id)?;
+        
+        // Unregister parent-child relationship and trigger invalidation
+        self.invalidation_system.unregister_parent_child(parent_id, child_id);
+        self.invalidation_system.invalidate_node(parent_id, InvalidationType::Children);
+        
+        Ok(())
+    }
+
+    /// Compute layout for the current frame
+    pub fn compute_layout(&self, available_space: Size<AvailableSpace>) -> Result<(), taffy::TaffyError> {
+        let mut layout = self.layout.write().unwrap();
+        layout.compute_layout(available_space)?;
+        
+        // Clear invalidations after successful layout computation
+        self.invalidation_system.clear_invalidations();
+        
+        Ok(())
+    }
+
+    /// Get layout for a specific node
+    pub fn get_layout(&self, node_id: u64) -> Option<Layout> {
+        let layout = self.layout.read().unwrap();
+        layout.get_layout(node_id).copied()
+    }
+
+    /// Check if layout needs recomputation
+    pub fn is_dirty(&self) -> bool {
+        let layout = self.layout.read().unwrap();
+        layout.is_dirty()
+    }
+
+    /// Manually invalidate a node
+    pub fn invalidate_node(&self, node_id: u64, invalidation_type: InvalidationType) {
+        self.invalidation_system.invalidate_node(node_id, invalidation_type);
+    }
+
+    /// Remove a node completely
+    pub fn remove_node(&self, node_id: u64) -> Result<(), taffy::TaffyError> {
+        // Remove from invalidation system first
+        self.invalidation_system.remove_node(node_id);
+        
+        let mut layout = self.layout.write().unwrap();
+        layout.remove_node(node_id)
+    }
+
+    /// Get a signal that triggers when layout changes
+    pub fn layout_changed_signal(&self) -> Signal<bool> {
+        self.layout_signal.clone()
+    }
+
+    /// Get the underlying layout for direct access (use carefully)
+    pub fn get_layout_manager(&self) -> Arc<RwLock<ReactiveLayout>> {
+        self.layout.clone()
     }
 }
