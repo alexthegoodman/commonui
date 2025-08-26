@@ -89,7 +89,7 @@ Event Handling:
 Documentation and Examples
 
 - Write comprehensive API documentation
-- Create "Hello World" example
+- ~~Create "Hello World" example~~
 - Add complex layout examples featuring multiple widgets
 
 Testing and Validation

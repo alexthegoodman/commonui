@@ -8,12 +8,14 @@ use winit::{
 };
 use gui_reactive::{global_frame_scheduler, FrameContext};
 use crate::event::{Event, MouseEvent, KeyboardEvent, Point};
+use crate::{WidgetManager, Element};
 use winit::keyboard::ModifiersState;
 
 pub struct App {
     window: Option<Arc<Window>>,
     event_sender: mpsc::UnboundedSender<Event>,
     event_receiver: mpsc::UnboundedReceiver<Event>,
+    widget_manager: WidgetManager,
 }
 
 impl App {
@@ -24,7 +26,13 @@ impl App {
             window: None,
             event_sender,
             event_receiver,
+            widget_manager: WidgetManager::new(),
         }
+    }
+
+    pub fn with_root(mut self, root: Element) -> Result<Self, Box<dyn std::error::Error>> {
+        self.widget_manager.set_root(root)?;
+        Ok(self)
     }
 
     pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -135,8 +143,18 @@ impl App {
         // Handle global device events if needed
     }
 
-    fn render_frame(&self) {
-        // Placeholder for actual rendering logic
-        // This will be integrated with the gui-render crate when widgets are implemented
+    fn render_frame(&mut self) {
+        // Process any pending events
+        while let Ok(event) = self.event_receiver.try_recv() {
+            self.widget_manager.handle_event(&event);
+        }
+        
+        // Update all widgets
+        if let Err(e) = self.widget_manager.update_all() {
+            eprintln!("Widget update error: {:?}", e);
+        }
+        
+        // Clear dirty widgets for next frame
+        self.widget_manager.clear_dirty_widgets();
     }
 }

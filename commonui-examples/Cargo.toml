@@ -9,3 +9,4 @@ repository.workspace = true
 [dependencies]
 gui-core = { path = "../gui-core" }
 tokio = { workspace = true }
+vello = { workspace = true }
