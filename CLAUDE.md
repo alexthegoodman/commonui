@@ -80,10 +80,10 @@ Input and Event System
 
 Event Handling:
 
-- Create event types (Mouse, Keyboard, Touch)
-- Implement event propagation and bubbling
-- Add hit-testing with spatial indexing
-- Create focus management system
+- ~~Create event types (Mouse, Keyboard, Touch)~~
+- ~~Implement event propagation and bubbling~~
+- ~~Add hit-testing with spatial indexing~~
+- ~~Create focus management system~~
 - Integrate winit events with reactive system (is this needed?)
 
 Documentation and Examples

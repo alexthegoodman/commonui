@@ -1,5 +1,6 @@
 use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion};
 use crate::event::Event;
+use winit::event::ElementState;
 use gui_reactive::Signal;
 use gui_render::primitives::Rectangle;
 use std::any::Any;
@@ -139,11 +140,11 @@ impl Widget for ButtonWidget {
         }
 
         match event {
-            Event::Mouse { x, y, button, pressed } => {
-                let inside = self.is_point_inside(*x as f32, *y as f32);
+            Event::Mouse(mouse_event) => {
+                let inside = self.is_point_inside(mouse_event.position.x as f32, mouse_event.position.y as f32);
                 let old_state = self.state;
 
-                if button.is_none() {
+                if mouse_event.button.is_none() {
                     // Mouse move
                     match self.state {
                         ButtonState::Normal => {
@@ -163,7 +164,7 @@ impl Widget for ButtonWidget {
                             // No state changes when disabled
                         },
                     }
-                } else if *pressed {
+                } else if mouse_event.state == ElementState::Pressed {
                     // Mouse down
                     if inside {
                         self.state = ButtonState::Pressed;
@@ -395,10 +396,10 @@ impl Widget for InputWidget {
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
-            Event::Mouse { x, y, button, pressed } => {
-                if button.is_some() && *pressed {
+            Event::Mouse(mouse_event) => {
+                if mouse_event.button.is_some() && mouse_event.state == ElementState::Pressed {
                     // Mouse down
-                    let inside = self.is_point_inside(*x as f32, *y as f32);
+                    let inside = self.is_point_inside(mouse_event.position.x as f32, mouse_event.position.y as f32);
                     self.set_focus(inside);
                     if inside {
                         EventResult::Handled
@@ -409,10 +410,10 @@ impl Widget for InputWidget {
                     EventResult::Ignored
                 }
             },
-            Event::Keyboard { key, pressed } if *pressed && self.is_focused => {
+            Event::Keyboard(keyboard_event) if keyboard_event.state == ElementState::Pressed && self.is_focused => {
                 // For now, we'll handle basic keyboard events using scancode
                 // In a real implementation, we'd convert scancodes to characters
-                match *key {
+                match keyboard_event.scancode {
                     14 => { // Backspace
                         self.delete_char();
                         EventResult::Handled
@@ -634,11 +635,11 @@ impl Widget for SliderWidget {
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
-            Event::Mouse { x, y, button, pressed } => {
-                let x_f32 = *x as f32;
-                let y_f32 = *y as f32;
+            Event::Mouse(mouse_event) => {
+                let x_f32 = mouse_event.position.x as f32;
+                let y_f32 = mouse_event.position.y as f32;
 
-                if button.is_none() {
+                if mouse_event.button.is_none() {
                     // Mouse move
                     if self.is_dragging {
                         let new_value = self.position_to_value(x_f32);
@@ -647,7 +648,7 @@ impl Widget for SliderWidget {
                     } else {
                         EventResult::Ignored
                     }
-                } else if *pressed {
+                } else if mouse_event.state == ElementState::Pressed {
                     // Mouse down
                     if self.is_point_on_thumb(x_f32, y_f32) || self.is_point_on_track(x_f32, y_f32) {
                         self.is_dragging = true;

@@ -7,7 +7,8 @@ use winit::{
     window::{Window, WindowId, WindowBuilder},
 };
 use gui_reactive::{global_frame_scheduler, FrameContext};
-use crate::Event;
+use crate::event::{Event, MouseEvent, KeyboardEvent, Point};
+use winit::keyboard::ModifiersState;
 
 pub struct App {
     window: Option<Arc<Window>>,
@@ -97,30 +98,32 @@ impl App {
                 println!("Window resized to: {}x{}", new_size.width, new_size.height);
             }
             WindowEvent::CursorMoved { position, .. } => {
-                let _ = self.event_sender.send(Event::Mouse {
-                    x: position.x,
-                    y: position.y,
+                let _ = self.event_sender.send(Event::Mouse(MouseEvent {
+                    position: Point::new(position.x, position.y),
                     button: None,
-                    pressed: false,
-                });
+                    state: ElementState::Released,
+                    modifiers: ModifiersState::default(),
+                }));
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                let _ = self.event_sender.send(Event::Mouse {
-                    x: 0.0,
-                    y: 0.0,
+                let _ = self.event_sender.send(Event::Mouse(MouseEvent {
+                    position: Point::new(0.0, 0.0), // Will be updated with actual position
                     button: Some(button),
-                    pressed: state == ElementState::Pressed,
-                });
+                    state,
+                    modifiers: ModifiersState::default(),
+                }));
             }
             WindowEvent::KeyboardInput { 
                 event,
                 ..
             } => {
                 if let Some(keycode) = event.physical_key.to_scancode() {
-                    let _ = self.event_sender.send(Event::Keyboard {
-                        key: keycode,
-                        pressed: event.state == ElementState::Pressed,
-                    });
+                    let _ = self.event_sender.send(Event::Keyboard(KeyboardEvent {
+                        key_code: None, // TODO: proper key code conversion
+                        scancode: keycode,
+                        state: event.state,
+                        modifiers: ModifiersState::default(),
+                    }));
                 }
             }
             _ => {}
