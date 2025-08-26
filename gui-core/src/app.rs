@@ -9,7 +9,7 @@ use winit::{
 };
 use wgpu::{Device, Queue, Surface, Instance, Adapter, SurfaceConfiguration, TextureUsages, PresentMode};
 use gui_reactive::global_frame_scheduler;
-use gui_render::VelloRenderer;
+use gui_render::{VelloRenderer, primitives::TextRenderer};
 use crate::event::{Event, MouseEvent, KeyboardEvent, Point};
 use crate::{WidgetManager, Element};
 
@@ -26,6 +26,7 @@ pub struct App {
     queue: Option<Arc<Queue>>,
     surface_config: Option<SurfaceConfiguration>,
     vello_renderer: Option<VelloRenderer>,
+    text_renderer: Option<TextRenderer>,
 }
 
 impl App {
@@ -44,6 +45,7 @@ impl App {
             queue: None,
             surface_config: None,
             vello_renderer: None,
+            text_renderer: None,
         }
     }
 
@@ -311,6 +313,9 @@ impl App {
         // Create Vello renderer
         let vello_renderer = VelloRenderer::new(device.clone(), queue.clone(), surface_format)?;
         
+        // Create text renderer
+        let text_renderer = TextRenderer::new();
+        
         // Store everything
         self.wgpu_instance = Some(instance);
         self.surface = Some(surface);
@@ -319,6 +324,7 @@ impl App {
         self.queue = Some(queue);
         self.surface_config = Some(surface_config);
         self.vello_renderer = Some(vello_renderer);
+        self.text_renderer = Some(text_renderer);
         
         Ok(())
     }
@@ -331,18 +337,12 @@ impl App {
         // Begin frame
         vello_renderer.begin_frame();
         
-        // Collect and render widgets - need to use a different approach due to borrow checker
-        // For now, we'll render the root widget directly if it exists
+        // Render the entire widget tree using the new Element::render method
         if let Some(root) = self.widget_manager.root() {
-            match root {
-                Element::Widget(widget) => {
-                    if let Some(box_widget) = widget.as_any().downcast_ref::<crate::widgets::container::BoxWidget>() {
-                        if let Some(background_rect) = box_widget.create_background_rectangle() {
-                            background_rect.draw(vello_renderer.scene());
-                        }
-                    }
-                },
-                _ => {} // Handle other element types later
+            if let Some(text_renderer) = &mut self.text_renderer {
+                if let Err(e) = root.render(vello_renderer.scene(), text_renderer) {
+                    eprintln!("Widget render error: {:?}", e);
+                }
             }
         }
         

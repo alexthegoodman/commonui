@@ -133,22 +133,63 @@ impl RowWidget {
             }
         }
 
-        for (i, _child) in self.children.iter().enumerate() {
-            let child_y = match self.cross_axis_alignment {
-                CrossAxisAlignment::Start => self.y,
-                CrossAxisAlignment::End => self.y + self.height - self.height, // Assume child height
-                CrossAxisAlignment::Center => self.y + (self.height - self.height) / 2.0,
-                CrossAxisAlignment::Stretch => self.y,
+        let num_children = self.children.len();
+        let gap = self.gap;
+        let row_y = self.y;
+        let row_height = self.height;
+        let cross_alignment = self.cross_axis_alignment;
+        
+        for (i, child) in self.children.iter_mut().enumerate() {
+            let child_y = match cross_alignment {
+                CrossAxisAlignment::Start => row_y,
+                CrossAxisAlignment::End => row_y + row_height,
+                CrossAxisAlignment::Center => row_y + (row_height / 2.0),
+                CrossAxisAlignment::Stretch => row_y,
             };
 
-            // In a real implementation, we would position the child widget here
-            // This would involve accessing the widget and calling set_position on it
+            // Position the child widget
+            Self::position_child_element(child, current_x, child_y, child_width, row_height);
             
             current_x += child_width;
-            if i < self.children.len() - 1 {
-                current_x += self.gap;
+            if i < num_children - 1 {
+                current_x += gap;
             }
         }
+    }
+    
+    fn position_child_element(child: &mut Element, x: f32, y: f32, _width: f32, _height: f32) {
+        match child {
+            Element::Widget(widget) => {
+                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget};
+                
+                if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
+                    text_widget.set_position(x, y);
+                } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
+                    button_widget.set_position(x, y);
+                } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
+                    box_widget.set_position(x, y);
+                }
+            },
+            Element::Container { widget, .. } => {
+                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget};
+                
+                if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
+                    text_widget.set_position(x, y);
+                } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
+                    button_widget.set_position(x, y);
+                } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
+                    box_widget.set_position(x, y);
+                }
+            },
+            Element::Fragment(_) => {
+                // Fragments don't have a position
+            }
+        }
+    }
+    
+    pub fn into_container_element(mut self) -> crate::Element {
+        let children = std::mem::take(&mut self.children);
+        crate::Element::new_container(Box::new(self), children)
     }
 }
 
@@ -343,21 +384,63 @@ impl ColumnWidget {
             }
         }
 
-        for (i, _child) in self.children.iter().enumerate() {
-            let child_x = match self.cross_axis_alignment {
-                CrossAxisAlignment::Start => self.x,
-                CrossAxisAlignment::End => self.x + self.width - self.width, // Assume child width
-                CrossAxisAlignment::Center => self.x + (self.width - self.width) / 2.0,
-                CrossAxisAlignment::Stretch => self.x,
+        let num_children = self.children.len();
+        let gap = self.gap;
+        let col_x = self.x;
+        let col_width = self.width;
+        let cross_alignment = self.cross_axis_alignment;
+        
+        for (i, child) in self.children.iter_mut().enumerate() {
+            let child_x = match cross_alignment {
+                CrossAxisAlignment::Start => col_x,
+                CrossAxisAlignment::End => col_x + col_width, // Position at right (could subtract child width)
+                CrossAxisAlignment::Center => col_x + (col_width / 2.0),
+                CrossAxisAlignment::Stretch => col_x,
             };
 
-            // In a real implementation, we would position the child widget here
+            // Position the child widget
+            Self::position_child_element(child, child_x, current_y, col_width, child_height);
             
             current_y += child_height;
-            if i < self.children.len() - 1 {
-                current_y += self.gap;
+            if i < num_children - 1 {
+                current_y += gap;
             }
         }
+    }
+    
+    fn position_child_element(child: &mut Element, x: f32, y: f32, _width: f32, _height: f32) {
+        match child {
+            Element::Widget(widget) => {
+                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget};
+                
+                if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
+                    text_widget.set_position(x, y);
+                } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
+                    button_widget.set_position(x, y);
+                } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
+                    box_widget.set_position(x, y);
+                }
+            },
+            Element::Container { widget, .. } => {
+                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget};
+                
+                if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
+                    text_widget.set_position(x, y);
+                } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
+                    button_widget.set_position(x, y);
+                } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
+                    box_widget.set_position(x, y);
+                }
+            },
+            Element::Fragment(_) => {
+                // Fragments don't have a position
+            }
+        }
+    }
+    
+    pub fn into_container_element(mut self) -> crate::Element {
+        let children = std::mem::take(&mut self.children);
+        crate::Element::new_container(Box::new(self), children)
     }
 }
 

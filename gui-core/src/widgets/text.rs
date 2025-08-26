@@ -81,7 +81,7 @@ impl TextWidget {
         self.content.get()
     }
 
-    pub fn measure_text(&self) -> (f32, f32) {
+    pub fn measure_text(&mut self) -> (f32, f32) {
         let text_primitive = TextPrimitive::new(
             self.x,
             self.y,
@@ -89,7 +89,20 @@ impl TextWidget {
             self.color.get(),
             self.font_size.get(),
         );
-        text_primitive.measure()
+        
+        // Ensure we have a text renderer
+        if self.text_renderer.is_none() {
+            self.text_renderer = Some(TextRenderer::new());
+        }
+        
+        if let Some(renderer) = &mut self.text_renderer {
+            text_primitive.measure(renderer.font_system_mut())
+        } else {
+            // Fallback to approximate measurements
+            let width = self.content.get().len() as f32 * self.font_size.get() * 0.6;
+            let height = self.font_size.get();
+            (width, height)
+        }
     }
 
     pub fn create_text_primitive(&self) -> TextPrimitive {
@@ -138,7 +151,9 @@ impl Widget for TextWidget {
     }
 
     fn render(&self) -> Result<RenderData, WidgetError> {
-        let (width, height) = self.measure_text();
+        // Use approximate measurements for rendering (actual text measurement requires mutable access)
+        let width = self.content.get().len() as f32 * self.font_size.get() * 0.6;
+        let height = self.font_size.get();
         
         let dirty_region = DirtyRegion {
             x: self.x,

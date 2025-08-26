@@ -82,31 +82,115 @@ impl Text {
         self
     }
 
-    pub fn draw(&self, scene: &mut Scene) {
-        // Simple fallback: draw a rectangle representing the text bounds
-        // This maintains the existing behavior but removes the TODO
-        let text_width = self.content.len() as f32 * self.font_size * 0.6;
-        let text_rect = Rect::new(
-            self.x as f64,
-            self.y as f64,
-            (self.x + text_width) as f64,
-            (self.y + self.font_size) as f64,
-        );
+    pub fn draw(&self, scene: &mut Scene, text_renderer: &mut TextRenderer) {
+        let metrics = Metrics::new(self.font_size, self.font_size * 1.2);
+        let mut buffer = Buffer::new(&mut text_renderer.font_system, metrics);
         
-        scene.fill(Fill::NonZero, Affine::IDENTITY, self.color, None, &text_rect);
+        // Set up text attributes
+        let mut attrs = Attrs::new();
+        if self.italic {
+            attrs = attrs.style(cosmic_text::Style::Italic);
+        }
+        attrs = attrs.weight(cosmic_text::Weight(self.font_weight));
+        
+        // Configure buffer and set text
+        buffer.set_size(&mut text_renderer.font_system, self.content.len() as f32 * self.font_size, self.font_size * 2.0);
+        buffer.set_text(&mut text_renderer.font_system, &self.content, attrs, Shaping::Advanced);
+        buffer.shape_until_scroll(&mut text_renderer.font_system);
+        
+        // Render actual glyphs using cosmic-text and SwashCache
+        for layout_run in buffer.layout_runs() {
+            for glyph in layout_run.glyphs.iter() {
+                // Create a cache key from glyph properties
+                let cache_key = cosmic_text::CacheKey {
+                    font_id: glyph.font_id,
+                    glyph_id: glyph.glyph_id, 
+                    font_size_bits: glyph.font_size.to_bits(),
+                    x_bin: cosmic_text::SubpixelBin::Zero,
+                    y_bin: cosmic_text::SubpixelBin::Zero,
+                };
+                
+                // Get the glyph image from SwashCache
+                if let Some(image) = text_renderer.swash_cache.get_image(&mut text_renderer.font_system, cache_key) {
+                    if !image.data.is_empty() {
+                        // Convert grayscale data to RGBA format
+                        let rgba_data: Vec<u8> = image.data.iter()
+                            .flat_map(|&gray| {
+                                // Convert grayscale to RGBA with text color
+                                let alpha = gray;
+                                [self.color.r, self.color.g, self.color.b, alpha]
+                            })
+                            .collect();
+
+                        // Create a Vello image from the converted bitmap
+                        let vello_image = VelloImage::new(
+                            rgba_data.into(),
+                            Format::Rgba8,
+                            image.placement.width,
+                            image.placement.height,
+                        );
+                        
+                        // Position the glyph correctly
+                        let glyph_x = self.x + glyph.x + image.placement.left as f32;
+                        let glyph_y = self.y + glyph.y - image.placement.top as f32;
+                        
+                        let transform = Affine::translate((glyph_x as f64, glyph_y as f64));
+                        scene.draw_image(&vello_image, transform);
+                    }
+                } else {
+                    // Fallback: draw a colored rectangle for each glyph position
+                    let glyph_x = self.x + glyph.x;
+                    let glyph_y = self.y + glyph.y;
+                    
+                    let glyph_rect = Rect::new(
+                        glyph_x as f64,
+                        glyph_y as f64,
+                        (glyph_x + glyph.w) as f64,
+                        (glyph_y + self.font_size) as f64,
+                    );
+                    
+                    scene.fill(Fill::NonZero, Affine::IDENTITY, self.color, None, &glyph_rect);
+                }
+            }
+        }
     }
 
-    pub fn measure(&self) -> (f32, f32) {
-        // Approximate text measurements
-        let width = self.content.len() as f32 * self.font_size * 0.6;
-        let height = self.font_size;
+    pub fn measure(&self, font_system: &mut FontSystem) -> (f32, f32) {
+        let metrics = Metrics::new(self.font_size, self.font_size * 1.2);
+        let mut buffer = Buffer::new(font_system, metrics);
+        
+        // Set up text attributes
+        let mut attrs = Attrs::new();
+        if self.italic {
+            attrs = attrs.style(cosmic_text::Style::Italic);
+        }
+        attrs = attrs.weight(cosmic_text::Weight(self.font_weight));
+        
+        // Configure buffer and set text
+        buffer.set_size(font_system, f32::INFINITY, f32::INFINITY);
+        buffer.set_text(font_system, &self.content, attrs, Shaping::Advanced);
+        buffer.shape_until_scroll(font_system);
+        
+        // Calculate actual text dimensions
+        let mut width = 0.0f32;
+        let mut height = self.font_size;
+        
+        for layout_run in buffer.layout_runs() {
+            let run_width = layout_run.glyphs.iter()
+                .map(|glyph| glyph.x + glyph.w)
+                .fold(0.0f32, f32::max);
+            width = width.max(run_width);
+            // Use font_size for height since line_height is not available
+            height = height.max(self.font_size);
+        }
+        
         (width, height)
     }
 }
 
 pub struct TextRenderer {
-    font_system: FontSystem,
-    swash_cache: SwashCache,
+    pub font_system: FontSystem,
+    pub swash_cache: SwashCache,
 }
 
 impl TextRenderer {
@@ -115,6 +199,14 @@ impl TextRenderer {
             font_system: FontSystem::new(),
             swash_cache: SwashCache::new(),
         }
+    }
+
+    pub fn font_system_mut(&mut self) -> &mut FontSystem {
+        &mut self.font_system
+    }
+
+    pub fn swash_cache_mut(&mut self) -> &mut SwashCache {
+        &mut self.swash_cache
     }
 
     pub fn render_text(&mut self, text: &str, x: f32, y: f32, font_size: f32, color: Color, scene: &mut Scene) {

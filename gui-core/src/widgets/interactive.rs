@@ -5,6 +5,7 @@ use gui_reactive::Signal;
 use gui_render::primitives::Rectangle;
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
+use gui_render::primitives::Text;
 use vello::peniko::Color;
 
 static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(3000);
@@ -117,6 +118,22 @@ impl ButtonWidget {
     pub fn create_background_rectangle(&self) -> Rectangle {
         Rectangle::new(self.x, self.y, self.width, self.height, self.get_current_color())
             .with_border_radius(self.border_radius)
+    }
+    
+    pub fn create_text_primitive(&self) -> Option<gui_render::primitives::Text> {
+        if !self.label.is_empty() {
+            // Position text in the center of the button
+            let text_size = 14.0; // Default font size for buttons
+            let text_x = self.x + (self.width / 2.0) - (self.label.len() as f32 * text_size * 0.3); // Rough centering
+            let text_y = self.y + (self.height / 2.0) - (text_size / 2.0);
+            
+            // Use white text color for good contrast against button background
+            let text_color = Color::rgba8(255, 255, 255, 255);
+            
+            Some(Text::new(text_x, text_y, self.label.clone(), text_color, text_size))
+        } else {
+            None
+        }
     }
 }
 
