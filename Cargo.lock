@@ -687,6 +687,7 @@ dependencies = [
  "gui-reactive",
  "gui-render",
  "tokio",
+ "vello",
  "winit",
 ]
 

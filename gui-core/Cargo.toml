@@ -12,3 +12,4 @@ gui-layout = { path = "../gui-layout" }
 gui-render = { path = "../gui-render" }
 tokio = { workspace = true }
 winit = { workspace = true }
+vello = { workspace = true }
