@@ -1,4 +1,4 @@
-use vello::kurbo::{Rect, RoundedRect, Affine};
+use vello::kurbo::{Rect, RoundedRect, Affine, Stroke};
 use vello::peniko::{Color, Fill};
 use vello::Scene;
 
@@ -55,6 +55,8 @@ pub struct Text {
     pub content: String,
     pub color: Color,
     pub font_size: f32,
+    pub font_weight: u16,
+    pub italic: bool,
 }
 
 impl Text {
@@ -65,20 +67,40 @@ impl Text {
             content,
             color,
             font_size,
+            font_weight: 400, // Normal weight
+            italic: false,
         }
+    }
+
+    pub fn with_weight(mut self, weight: u16) -> Self {
+        self.font_weight = weight;
+        self
+    }
+
+    pub fn with_italic(mut self, italic: bool) -> Self {
+        self.italic = italic;
+        self
     }
 
     pub fn draw(&self, scene: &mut Scene) {
         // TODO: Implement proper cosmic-text integration
         // For now, we'll draw a placeholder rectangle
+        let text_width = self.content.len() as f32 * self.font_size * 0.6;
         let placeholder_rect = Rect::new(
             self.x as f64,
             self.y as f64,
-            (self.x + self.content.len() as f32 * self.font_size * 0.6) as f64,
+            (self.x + text_width) as f64,
             (self.y + self.font_size) as f64,
         );
         
         scene.fill(Fill::NonZero, Affine::IDENTITY, self.color, None, &placeholder_rect);
+    }
+
+    pub fn measure(&self) -> (f32, f32) {
+        // Approximate text measurements
+        let width = self.content.len() as f32 * self.font_size * 0.6;
+        let height = self.font_size;
+        (width, height)
     }
 }
 
@@ -112,5 +134,128 @@ impl TextRenderer {
         );
         
         scene.fill(Fill::NonZero, Affine::IDENTITY, color, None, &placeholder_rect);
+    }
+}
+
+pub struct Shadow {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub offset_x: f32,
+    pub offset_y: f32,
+    pub blur_radius: f32,
+    pub color: Color,
+}
+
+impl Shadow {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, offset_x: f32, offset_y: f32, blur_radius: f32, color: Color) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+            offset_x,
+            offset_y,
+            blur_radius,
+            color,
+        }
+    }
+
+    pub fn draw(&self, scene: &mut Scene) {
+        // Create a shadow rectangle with offset and blur simulation
+        // For now, we'll approximate blur with multiple rectangles at reduced opacity
+        let shadow_x = self.x + self.offset_x;
+        let shadow_y = self.y + self.offset_y;
+        
+        let blur_steps = (self.blur_radius / 2.0).max(1.0) as i32;
+        let step_alpha = 0.3 / blur_steps as f32;
+        
+        for i in 0..blur_steps {
+            let expand = i as f32;
+            let shadow_rect = Rect::new(
+                (shadow_x - expand) as f64,
+                (shadow_y - expand) as f64,
+                (shadow_x + self.width + expand) as f64,
+                (shadow_y + self.height + expand) as f64,
+            );
+            
+            // Create a semi-transparent shadow color by creating a new color with reduced alpha
+            let shadow_color = Color::rgba8(0, 0, 0, (step_alpha * 255.0) as u8);
+            
+            scene.fill(Fill::NonZero, Affine::IDENTITY, shadow_color, None, &shadow_rect);
+        }
+    }
+}
+
+pub struct Image {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub data: Vec<u8>,
+    pub format: ImageFormat,
+    pub opacity: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageFormat {
+    Rgba8,
+    Rgb8,
+    Bgra8,
+    Bgr8,
+}
+
+impl Image {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, data: Vec<u8>, format: ImageFormat) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+            data,
+            format,
+            opacity: 1.0,
+        }
+    }
+
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity.clamp(0.0, 1.0);
+        self
+    }
+
+    pub fn draw(&self, scene: &mut Scene) {
+        // TODO: Implement proper image rendering with Vello
+        // For now, we'll draw a placeholder rectangle with a border to indicate image position
+        let image_rect = Rect::new(
+            self.x as f64,
+            self.y as f64,
+            (self.x + self.width) as f64,
+            (self.y + self.height) as f64,
+        );
+        
+        // Draw a light gray background
+        let bg_color = Color::rgba8(200, 200, 200, (self.opacity * 255.0) as u8);
+        scene.fill(Fill::NonZero, Affine::IDENTITY, bg_color, None, &image_rect);
+        
+        // Draw a border to indicate this is an image placeholder
+        let border_color = Color::rgba8(100, 100, 100, (self.opacity * 255.0) as u8);
+        let stroke = Stroke::new(1.0);
+        scene.stroke(&stroke, Affine::IDENTITY, border_color, None, &image_rect);
+    }
+
+    pub fn bytes_per_pixel(&self) -> usize {
+        match self.format {
+            ImageFormat::Rgba8 | ImageFormat::Bgra8 => 4,
+            ImageFormat::Rgb8 | ImageFormat::Bgr8 => 3,
+        }
+    }
+
+    pub fn expected_data_size(&self) -> usize {
+        (self.width as usize) * (self.height as usize) * self.bytes_per_pixel()
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.data.len() == self.expected_data_size()
     }
 }

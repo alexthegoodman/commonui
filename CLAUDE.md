@@ -53,12 +53,12 @@ Layout Integration:
 - ~~Implement layout caching and dirty region tracking~~
 - ~~Add support for common layout patterns (flexbox, grid)~~
 
-Vello Rendering Backend (double check what exists or has been started):
+Vello Rendering Backend:
 
-- Create VelloRenderer abstraction over raw Vello (already exists or started)
-- Implement scene caching for static UI elements
-- Add batching system for dynamic updates
-- Create primitive types (rectangles, text, images, shadows)
+- ~~Create VelloRenderer abstraction over raw Vello (already exists or started)~~
+- ~~Implement scene caching for static UI elements~~
+- ~~Add batching system for dynamic updates~~
+- ~~Create primitive types (rectangles, text, images, shadows)~~
 
 Widget System
 
