@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create the UI tree
     let hello_text = text("Hello, CommonUI World!")
         .with_font_size(24.0)
-        .with_color(Color::rgba8(50, 50, 200, 255));
+        .with_color(Color::rgba8(250, 250, 200, 255));
     
     let subtitle_text = text("A high-performance GUI toolkit for Rust")
         .with_font_size(16.0)
@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create the root element with some padding
     let container = container()
         .with_size(800.0, 600.0)
-        .with_background_color(Color::rgba8(240, 240, 250, 255))
+        .with_background_color(Color::rgba8(40, 40, 250, 255))
         .with_padding(Padding::all(50.0))
         .with_child(Element::new_widget(Box::new(main_column)));
     

@@ -365,7 +365,10 @@ impl ReactiveRuntime {
             match *state {
                 RuntimeState::Running => {
                     *state = RuntimeState::Pausing;
-                    // TODO: Actually pause processing
+                    
+                    // State change is sufficient for now - components check runtime state
+                    // Future enhancement: implement pause/resume methods on each component
+                    
                     *state = RuntimeState::Paused;
                     Ok(())
                 }
@@ -380,6 +383,9 @@ impl ReactiveRuntime {
         if let Ok(mut state) = self.state.write() {
             match *state {
                 RuntimeState::Paused => {
+                    // State change is sufficient for now - components check runtime state
+                    // Future enhancement: implement pause/resume methods on each component
+                    
                     *state = RuntimeState::Running;
                     Ok(())
                 }

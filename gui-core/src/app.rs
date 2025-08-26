@@ -5,17 +5,27 @@ use winit::{
     event_loop::EventLoop,
     platform::scancode::PhysicalKeyExtScancode,
     window::{Window, WindowId, WindowBuilder},
+    keyboard::{KeyCode, ModifiersState},
 };
-use gui_reactive::{global_frame_scheduler, FrameContext};
+use wgpu::{Device, Queue, Surface, Instance, Adapter, SurfaceConfiguration, TextureUsages, PresentMode};
+use gui_reactive::global_frame_scheduler;
+use gui_render::VelloRenderer;
 use crate::event::{Event, MouseEvent, KeyboardEvent, Point};
 use crate::{WidgetManager, Element};
-use winit::keyboard::ModifiersState;
 
 pub struct App {
     window: Option<Arc<Window>>,
     event_sender: mpsc::UnboundedSender<Event>,
     event_receiver: mpsc::UnboundedReceiver<Event>,
     widget_manager: WidgetManager,
+    // Rendering components
+    wgpu_instance: Option<Instance>,
+    surface: Option<Surface<'static>>,
+    adapter: Option<Adapter>,
+    device: Option<Arc<Device>>,
+    queue: Option<Arc<Queue>>,
+    surface_config: Option<SurfaceConfiguration>,
+    vello_renderer: Option<VelloRenderer>,
 }
 
 impl App {
@@ -27,6 +37,13 @@ impl App {
             event_sender,
             event_receiver,
             widget_manager: WidgetManager::new(),
+            wgpu_instance: None,
+            surface: None,
+            adapter: None,
+            device: None,
+            queue: None,
+            surface_config: None,
+            vello_renderer: None,
         }
     }
 
@@ -51,6 +68,11 @@ impl App {
                             .build(event_loop_window_target)
                             .unwrap();
                         self.window = Some(Arc::new(window));
+                        
+                        // Initialize wgpu rendering
+                        if let Err(e) = self.init_rendering() {
+                            eprintln!("Failed to initialize rendering: {}", e);
+                        }
                     }
                 }
                 WinitEvent::WindowEvent { window_id, event } => {
@@ -126,8 +148,75 @@ impl App {
                 ..
             } => {
                 if let Some(keycode) = event.physical_key.to_scancode() {
+                    // Convert winit PhysicalKey to winit KeyCode if possible
+                    let key_code = match event.logical_key {
+                        winit::keyboard::Key::Named(named_key) => {
+                            use winit::keyboard::NamedKey;
+                            match named_key {
+                                NamedKey::Enter => Some(KeyCode::Enter),
+                                NamedKey::Escape => Some(KeyCode::Escape),
+                                NamedKey::Backspace => Some(KeyCode::Backspace),
+                                NamedKey::Tab => Some(KeyCode::Tab),
+                                NamedKey::Space => Some(KeyCode::Space),
+                                NamedKey::ArrowLeft => Some(KeyCode::ArrowLeft),
+                                NamedKey::ArrowUp => Some(KeyCode::ArrowUp),
+                                NamedKey::ArrowRight => Some(KeyCode::ArrowRight),
+                                NamedKey::ArrowDown => Some(KeyCode::ArrowDown),
+                                NamedKey::Delete => Some(KeyCode::Delete),
+                                NamedKey::Home => Some(KeyCode::Home),
+                                NamedKey::End => Some(KeyCode::End),
+                                NamedKey::PageUp => Some(KeyCode::PageUp),
+                                NamedKey::PageDown => Some(KeyCode::PageDown),
+                                _ => None,
+                            }
+                        },
+                        winit::keyboard::Key::Character(ref s) if s.len() == 1 => {
+                            let c = s.chars().next().unwrap().to_ascii_uppercase();
+                            match c {
+                                'A' => Some(KeyCode::KeyA),
+                                'B' => Some(KeyCode::KeyB),
+                                'C' => Some(KeyCode::KeyC),
+                                'D' => Some(KeyCode::KeyD),
+                                'E' => Some(KeyCode::KeyE),
+                                'F' => Some(KeyCode::KeyF),
+                                'G' => Some(KeyCode::KeyG),
+                                'H' => Some(KeyCode::KeyH),
+                                'I' => Some(KeyCode::KeyI),
+                                'J' => Some(KeyCode::KeyJ),
+                                'K' => Some(KeyCode::KeyK),
+                                'L' => Some(KeyCode::KeyL),
+                                'M' => Some(KeyCode::KeyM),
+                                'N' => Some(KeyCode::KeyN),
+                                'O' => Some(KeyCode::KeyO),
+                                'P' => Some(KeyCode::KeyP),
+                                'Q' => Some(KeyCode::KeyQ),
+                                'R' => Some(KeyCode::KeyR),
+                                'S' => Some(KeyCode::KeyS),
+                                'T' => Some(KeyCode::KeyT),
+                                'U' => Some(KeyCode::KeyU),
+                                'V' => Some(KeyCode::KeyV),
+                                'W' => Some(KeyCode::KeyW),
+                                'X' => Some(KeyCode::KeyX),
+                                'Y' => Some(KeyCode::KeyY),
+                                'Z' => Some(KeyCode::KeyZ),
+                                '0' => Some(KeyCode::Digit0),
+                                '1' => Some(KeyCode::Digit1),
+                                '2' => Some(KeyCode::Digit2),
+                                '3' => Some(KeyCode::Digit3),
+                                '4' => Some(KeyCode::Digit4),
+                                '5' => Some(KeyCode::Digit5),
+                                '6' => Some(KeyCode::Digit6),
+                                '7' => Some(KeyCode::Digit7),
+                                '8' => Some(KeyCode::Digit8),
+                                '9' => Some(KeyCode::Digit9),
+                                _ => None,
+                            }
+                        },
+                        _ => None,
+                    };
+                    
                     let _ = self.event_sender.send(Event::Keyboard(KeyboardEvent {
-                        key_code: None, // TODO: proper key code conversion
+                        key_code,
                         scancode: keycode,
                         state: event.state,
                         modifiers: ModifiersState::default(),
@@ -154,7 +243,116 @@ impl App {
             eprintln!("Widget update error: {:?}", e);
         }
         
+        // Render widgets to screen
+        if let Err(e) = self.render_widgets() {
+            eprintln!("Render error: {:?}", e);
+        }
+        
         // Clear dirty widgets for next frame
         self.widget_manager.clear_dirty_widgets();
     }
+
+    fn init_rendering(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let window = self.window.as_ref().ok_or("Window not available")?;
+        
+        // Create wgpu instance
+        let instance = Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::PRIMARY,
+            flags: wgpu::InstanceFlags::default(),
+            dx12_shader_compiler: wgpu::Dx12Compiler::default(),
+            gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
+        });
+        
+        // Create surface
+        let surface = instance.create_surface(window.clone())?;
+        
+        // Get adapter
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            force_fallback_adapter: false,
+            compatible_surface: Some(&surface),
+        })).ok_or("No adapter found")?;
+        
+        // Get device and queue
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::default(),
+            label: None,
+        }, None))?;
+        
+        let device = Arc::new(device);
+        let queue = Arc::new(queue);
+        
+        // Configure surface
+        // let surface_caps = surface.get_capabilities(&adapter);
+        // let surface_format = surface_caps.formats.iter()
+        //     .copied()
+        //     .find(|f| f.is_srgb())
+        //     .unwrap_or(surface_caps.formats[0]);
+        
+        // surface format of Rgba8Unorm
+        let surface_caps = surface.get_capabilities(&adapter);
+        let surface_format = wgpu::TextureFormat::Rgba8Unorm;
+
+        let size = window.inner_size();
+        let surface_config = SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::STORAGE_BINDING,
+            format: surface_format,
+            width: size.width,
+            height: size.height,
+            present_mode: PresentMode::Fifo,
+            alpha_mode: surface_caps.alpha_modes[0],
+            view_formats: vec![],
+            desired_maximum_frame_latency: 2,
+        };
+        
+        surface.configure(&device, &surface_config);
+        
+        // Create Vello renderer
+        let vello_renderer = VelloRenderer::new(device.clone(), queue.clone(), surface_format)?;
+        
+        // Store everything
+        self.wgpu_instance = Some(instance);
+        self.surface = Some(surface);
+        self.adapter = Some(adapter);
+        self.device = Some(device);
+        self.queue = Some(queue);
+        self.surface_config = Some(surface_config);
+        self.vello_renderer = Some(vello_renderer);
+        
+        Ok(())
+    }
+
+    fn render_widgets(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let surface = self.surface.as_ref().ok_or("Surface not initialized")?;
+        let surface_config = self.surface_config.as_ref().ok_or("Surface config not available")?;
+        let vello_renderer = self.vello_renderer.as_mut().ok_or("Vello renderer not initialized")?;
+        
+        // Begin frame
+        vello_renderer.begin_frame();
+        
+        // Collect and render widgets - need to use a different approach due to borrow checker
+        // For now, we'll render the root widget directly if it exists
+        if let Some(root) = self.widget_manager.root() {
+            match root {
+                Element::Widget(widget) => {
+                    if let Some(box_widget) = widget.as_any().downcast_ref::<crate::widgets::container::BoxWidget>() {
+                        if let Some(background_rect) = box_widget.create_background_rectangle() {
+                            background_rect.draw(vello_renderer.scene());
+                        }
+                    }
+                },
+                _ => {} // Handle other element types later
+            }
+        }
+        
+        // Render to surface
+        vello_renderer.render_to_surface(surface, surface_config.width, surface_config.height)?;
+        
+        // End frame
+        vello_renderer.end_frame();
+        
+        Ok(())
+    }
+
 }

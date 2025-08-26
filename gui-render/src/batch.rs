@@ -79,12 +79,21 @@ impl RenderCommand {
                 scene.fill(Fill::NonZero, *transform, *color, None, &rounded_rect);
             },
             RenderCommand::Text { x, y, text, color, font_size, transform } => {
-                // TODO: Implement proper text rendering with cosmic-text
-                // For now, create a placeholder rectangle
-                let text_width = text.len() as f32 * font_size * 0.6;
-                let rect = vello::kurbo::Rect::new(*x as f64, *y as f64, 
-                                                   (*x + text_width) as f64, (*y + *font_size) as f64);
-                scene.fill(Fill::NonZero, *transform, *color, None, &rect);
+                // Use a simplified text rendering approach
+                // In a real implementation, this would use a shared FontSystem and SwashCache
+                let text_height = *font_size;
+                
+                // Create individual rectangles for each character to simulate text
+                for (i, _) in text.char_indices() {
+                    let char_x = *x + (i as f32 * font_size * 0.6);
+                    let char_rect = vello::kurbo::Rect::new(
+                        char_x as f64, 
+                        *y as f64, 
+                        (char_x + font_size * 0.5) as f64, 
+                        (*y + text_height) as f64
+                    );
+                    scene.fill(Fill::NonZero, *transform, *color, None, &char_rect);
+                }
             },
         }
     }

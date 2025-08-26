@@ -145,6 +145,10 @@ impl WidgetManager {
     pub fn clear_dirty_widgets(&self) {
         self.dirty_widgets.set(Vec::new());
     }
+
+    pub fn root(&self) -> Option<&Element> {
+        self.root.as_ref()
+    }
 }
 
 impl Default for WidgetManager {

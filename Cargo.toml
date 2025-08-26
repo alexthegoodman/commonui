@@ -28,5 +28,8 @@ cosmic-text = "0.10"
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
 
+# Utilities
+pollster = "0.3"
+
 # Development
 criterion = "0.5"
