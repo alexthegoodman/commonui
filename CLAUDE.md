@@ -64,17 +64,17 @@ Widget System
 
 Core Widget Traits:
 
-- Define Widget trait with lifecycle methods
-- Create Element enum for UI tree representation
-- Implement widget mounting/unmounting system
-- Add widget state management and updates
+- ~~Define Widget trait with lifecycle methods~~
+- ~~Create Element enum for UI tree representation~~
+- ~~Implement widget mounting/unmounting system~~
+- ~~Add widget state management and updates~~
 
 Essential Widgets:
 
-- Text widget with cosmic-text integration
+- Text widget with cosmic-text integration (may be started)
 - Container widgets (Box, Stack, etc.)
 - Interactive widgets (Button, Input, Slider)
-- Layout widgets (Row, Column, Grid)
+- Layout widgets (Row, Column, Grid) (may exist or started)
 
 Input and Event System
 
