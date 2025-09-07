@@ -108,3 +108,5 @@ Quality Assurance:
 ## Final Instructions
 
 Please take up whichever task or group of tasks you want (so long as they are not crossed off), and then cross them off when you are finished. This entire project will be completed over many sessions together.
+
+I'll use `build` or `run` commands, but you can use `cargo check`.

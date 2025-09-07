@@ -134,8 +134,13 @@ impl BoxWidget {
         self.dirty = true;
     }
 
-    pub fn into_container_element(self) -> crate::Element {
-        crate::Element::new_container(Box::new(self), vec![])
+    pub fn into_container_element(mut self) -> crate::Element {
+        let children = std::mem::take(&mut self.children);
+        if children.is_empty() {
+            crate::Element::new_widget(Box::new(self))
+        } else {
+            crate::Element::new_container(Box::new(self), children)
+        }
     }
 
     pub fn get_content_area(&self) -> (f32, f32, f32, f32) {

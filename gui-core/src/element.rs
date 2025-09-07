@@ -247,6 +247,22 @@ impl Element {
             Element::position_children_for_column_static(column_widget, children);
         } else if let Some(row_widget) = widget.as_any().downcast_ref::<RowWidget>() {
             Element::position_children_for_row_static(row_widget, children);
+        } else if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
+            Element::position_children_for_box_static(box_widget, children);
+        }
+    }
+    
+    fn position_children_for_box_static(box_widget: &BoxWidget, children: &mut Vec<Element>) {
+        if children.is_empty() {
+            return;
+        }
+
+        let (content_x, content_y, content_width, content_height) = box_widget.get_content_area();
+        
+        // For now, position all children at the content area position
+        // Later this could be enhanced with different alignment options
+        for child in children.iter_mut() {
+            Element::position_child_element_static(child, content_x, content_y, content_width, content_height);
         }
     }
     
