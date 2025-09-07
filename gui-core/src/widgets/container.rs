@@ -134,6 +134,10 @@ impl BoxWidget {
         self.dirty = true;
     }
 
+    pub fn into_container_element(self) -> crate::Element {
+        crate::Element::new_container(Box::new(self), vec![])
+    }
+
     pub fn get_content_area(&self) -> (f32, f32, f32, f32) {
         (
             self.x + self.padding.left,

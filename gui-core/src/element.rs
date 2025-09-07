@@ -3,6 +3,7 @@ use crate::event::Event;
 use crate::widgets::text::TextWidget;
 use crate::widgets::container::BoxWidget;
 use crate::widgets::interactive::ButtonWidget;
+use crate::widgets::layout::{ColumnWidget, RowWidget};
 
 use vello::Scene;
 
@@ -70,6 +71,10 @@ impl Element {
             Element::Widget(widget) => widget.update(),
             Element::Container { widget, children } => {
                 widget.update()?;
+                
+                // Position children for layout widgets
+                Element::position_children_for_layout_widget_static(widget.as_ref(), children);
+                
                 for child in children.iter_mut() {
                     child.update()?;
                 }
@@ -235,5 +240,151 @@ impl Element {
         }
         
         Ok(render_data)
+    }
+    
+    fn position_children_for_layout_widget_static(widget: &dyn Widget, children: &mut Vec<Element>) {
+        if let Some(column_widget) = widget.as_any().downcast_ref::<ColumnWidget>() {
+            Element::position_children_for_column_static(column_widget, children);
+        } else if let Some(row_widget) = widget.as_any().downcast_ref::<RowWidget>() {
+            Element::position_children_for_row_static(row_widget, children);
+        }
+    }
+    
+    fn position_children_for_column_static(column_widget: &ColumnWidget, children: &mut Vec<Element>) {
+        if children.is_empty() {
+            return;
+        }
+
+        let child_count = children.len() as f32;
+        let gap = column_widget.get_gap();
+        let total_gap = gap * (child_count - 1.0);
+        let (col_x, col_y) = column_widget.get_position();
+        let (col_width, col_height) = column_widget.get_size();
+        let available_height = col_height - total_gap;
+        let child_height = available_height / child_count;
+
+        let mut current_y = col_y;
+
+        // Apply main axis alignment
+        match column_widget.get_main_axis_alignment() {
+            crate::widgets::layout::MainAxisAlignment::Start => {
+                current_y = col_y;
+            }
+            crate::widgets::layout::MainAxisAlignment::End => {
+                current_y = col_y + col_height - (child_height * child_count + total_gap);
+            }
+            crate::widgets::layout::MainAxisAlignment::Center => {
+                current_y = col_y + (col_height - (child_height * child_count + total_gap)) / 2.0;
+            }
+            crate::widgets::layout::MainAxisAlignment::SpaceBetween | 
+            crate::widgets::layout::MainAxisAlignment::SpaceAround | 
+            crate::widgets::layout::MainAxisAlignment::SpaceEvenly => {
+                current_y = col_y;
+            }
+        }
+
+        let cross_alignment = column_widget.get_cross_axis_alignment();
+        let num_children = children.len();
+        
+        for (i, child) in children.iter_mut().enumerate() {
+            let child_x = match cross_alignment {
+                crate::widgets::layout::CrossAxisAlignment::Start => col_x,
+                crate::widgets::layout::CrossAxisAlignment::End => col_x + col_width,
+                crate::widgets::layout::CrossAxisAlignment::Center => col_x + (col_width / 2.0),
+                crate::widgets::layout::CrossAxisAlignment::Stretch => col_x,
+            };
+
+            // Position the child widget
+            Element::position_child_element_static(child, child_x, current_y, col_width, child_height);
+            
+            current_y += child_height;
+            if i < (num_children - 1) {
+                current_y += gap;
+            }
+        }
+    }
+    
+    fn position_children_for_row_static(row_widget: &RowWidget, children: &mut Vec<Element>) {
+        if children.is_empty() {
+            return;
+        }
+
+        let child_count = children.len() as f32;
+        let gap = row_widget.get_gap();
+        let total_gap = gap * (child_count - 1.0);
+        let (row_x, row_y) = row_widget.get_position();
+        let (row_width, row_height) = row_widget.get_size();
+        let available_width = row_width - total_gap;
+        let child_width = available_width / child_count;
+
+        let mut current_x = row_x;
+
+        // Apply main axis alignment
+        match row_widget.get_main_axis_alignment() {
+            crate::widgets::layout::MainAxisAlignment::Start => {
+                current_x = row_x;
+            }
+            crate::widgets::layout::MainAxisAlignment::End => {
+                current_x = row_x + row_width - (child_width * child_count + total_gap);
+            }
+            crate::widgets::layout::MainAxisAlignment::Center => {
+                current_x = row_x + (row_width - (child_width * child_count + total_gap)) / 2.0;
+            }
+            crate::widgets::layout::MainAxisAlignment::SpaceBetween | 
+            crate::widgets::layout::MainAxisAlignment::SpaceAround | 
+            crate::widgets::layout::MainAxisAlignment::SpaceEvenly => {
+                current_x = row_x;
+            }
+        }
+
+        let cross_alignment = row_widget.get_cross_axis_alignment();
+        let num_children = children.len();
+        
+        for (i, child) in children.iter_mut().enumerate() {
+            let child_y = match cross_alignment {
+                crate::widgets::layout::CrossAxisAlignment::Start => row_y,
+                crate::widgets::layout::CrossAxisAlignment::End => row_y + row_height,
+                crate::widgets::layout::CrossAxisAlignment::Center => row_y + (row_height / 2.0),
+                crate::widgets::layout::CrossAxisAlignment::Stretch => row_y,
+            };
+
+            // Position the child widget
+            Element::position_child_element_static(child, current_x, child_y, child_width, row_height);
+            
+            current_x += child_width;
+            if i < (num_children - 1) {
+                current_x += gap;
+            }
+        }
+    }
+    
+    fn position_child_element_static(child: &mut Element, x: f32, y: f32, _width: f32, _height: f32) {
+        match child {
+            Element::Widget(widget) => {
+                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget};
+                
+                if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
+                    text_widget.set_position(x, y);
+                } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
+                    button_widget.set_position(x, y);
+                } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
+                    box_widget.set_position(x, y);
+                }
+            },
+            Element::Container { widget, .. } => {
+                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget};
+                
+                if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
+                    text_widget.set_position(x, y);
+                } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
+                    button_widget.set_position(x, y);
+                } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
+                    box_widget.set_position(x, y);
+                }
+            },
+            Element::Fragment(_) => {
+                // Fragments don't have a position
+            }
+        }
     }
 }

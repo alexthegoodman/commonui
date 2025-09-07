@@ -53,6 +53,13 @@ impl RowWidget {
         }
     }
 
+    // Getters for layout positioning
+    pub fn get_position(&self) -> (f32, f32) { (self.x, self.y) }
+    pub fn get_size(&self) -> (f32, f32) { (self.width, self.height) }
+    pub fn get_gap(&self) -> f32 { self.gap }
+    pub fn get_main_axis_alignment(&self) -> MainAxisAlignment { self.main_axis_alignment }
+    pub fn get_cross_axis_alignment(&self) -> CrossAxisAlignment { self.cross_axis_alignment }
+
     pub fn with_size(mut self, width: f32, height: f32) -> Self {
         self.width = width;
         self.height = height;
@@ -304,6 +311,13 @@ impl ColumnWidget {
             dirty: true,
         }
     }
+
+    // Getters for layout positioning
+    pub fn get_position(&self) -> (f32, f32) { (self.x, self.y) }
+    pub fn get_size(&self) -> (f32, f32) { (self.width, self.height) }
+    pub fn get_gap(&self) -> f32 { self.gap }
+    pub fn get_main_axis_alignment(&self) -> MainAxisAlignment { self.main_axis_alignment }
+    pub fn get_cross_axis_alignment(&self) -> CrossAxisAlignment { self.cross_axis_alignment }
 
     pub fn with_size(mut self, width: f32, height: f32) -> Self {
         self.width = width;
