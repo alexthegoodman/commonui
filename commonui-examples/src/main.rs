@@ -20,10 +20,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create a column layout to arrange elements vertically
     let main_column = column()
-        .with_size(200.0, 200.0)
+        .with_size(300.0, 100.0)
         .with_main_axis_alignment(MainAxisAlignment::Center)
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
-        .with_gap(20.0)
+        // .with_gap(10.0)
         .with_child(Element::new_widget(Box::new(hello_text)))
         .with_child(Element::new_widget(Box::new(subtitle_text)))
         .with_child(Element::new_widget(Box::new(click_button)));
@@ -32,14 +32,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let container2 = container()
         .with_size(300.0, 300.0)
         .with_background_color(Color::rgba8(240, 40, 50, 255))
-        .with_padding(Padding::all(50.0))
+        // .with_padding(Padding::all(0.0))
         .with_child(main_column.into_container_element());
     
     // Create the root element with some padding  
     let container = container()
         .with_size(500.0, 500.0)
         .with_background_color(Color::rgba8(40, 40, 250, 255))
-        .with_padding(Padding::all(50.0))
+        .with_padding(Padding::all(20.0))
         .with_child(container2.into_container_element());
     
     let root = container.into_container_element();
