@@ -65,16 +65,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
     // Create a slider for controlling the counter
-    let counter_for_slider = counter_signal.clone();
-    let subtitle_for_slider = subtitle_signal.clone();
-    let counter_slider = slider(0.0, 20.0)
-        .with_size(200.0, 24.0)
-        .with_value(counter_signal.get() as f32)
-        .on_change(move |value| {
-            let int_value = value as i32;
-            counter_for_slider.set(int_value);
-            subtitle_for_slider.set(format!("Clicked {} times", int_value));
-        });
+    // let counter_for_slider = counter_signal.clone();
+    // let subtitle_for_slider = subtitle_signal.clone();
+    // let counter_slider = slider(0.0, 20.0)
+    //     .with_size(200.0, 24.0)
+    //     .with_value(counter_signal.get() as f32)
+    //     .on_change(move |value| {
+    //         let int_value = value as i32;
+    //         counter_for_slider.set(int_value);
+    //         subtitle_for_slider.set(format!("Clicked {} times", int_value));
+    //     });
     
     // Create a button with shadow that will update the counter signal when clicked
     let counter_for_button = counter_signal.clone();
@@ -114,7 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(subtitle_text)))
         .with_child(Element::new_widget(Box::new(text_input)))
         .with_child(Element::new_widget(Box::new(number_input)))
-        .with_child(Element::new_widget(Box::new(counter_slider)))
+        // .with_child(Element::new_widget(Box::new(counter_slider)))
         .with_child(Element::new_widget(Box::new(click_button)));
 
         // Create the inner container with responsive shadow
@@ -124,24 +124,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_padding(Padding::only(20.0, 0.0, 0.0, 0.0))
         .with_shadow(15.0, 15.0, 30.0, Color::rgba8(0, 0, 0, 150))
         // Responsive sizing for inner container
-        .with_responsive_style(
-            mobile(),
-            ResponsiveStyle::new()
-                .with_size(200.0, 250.0)
-                .with_padding(Padding::all(10.0))
-        )
-        .with_responsive_style(
-            tablet(),
-            ResponsiveStyle::new()
-                .with_size(250.0, 275.0)
-                .with_padding(Padding::all(15.0))
-        )
-        .with_responsive_style(
-            desktop(),
-            ResponsiveStyle::new()
-                .with_size(400.0, 400.0)
-                .with_padding(Padding::all(25.0))
-        )
+        // .with_responsive_style(
+        //     mobile(),
+        //     ResponsiveStyle::new()
+        //         .with_size(200.0, 250.0)
+        //         .with_padding(Padding::all(10.0))
+        // )
+        // .with_responsive_style(
+        //     tablet(),
+        //     ResponsiveStyle::new()
+        //         .with_size(250.0, 275.0)
+        //         .with_padding(Padding::all(15.0))
+        // )
+        // .with_responsive_style(
+        //     desktop(),
+        //     ResponsiveStyle::new()
+        //         .with_size(400.0, 400.0)
+        //         .with_padding(Padding::all(25.0))
+        // )
         .with_child(main_column.into_container_element());
     
     // Create the root element with responsive styling
@@ -150,30 +150,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_background_color(Color::rgba8(240, 240, 240, 255))
         .with_padding(Padding::all(40.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
-        // Mobile styling - smaller size and padding
-        .with_responsive_style(
-            mobile(),
-            ResponsiveStyle::new()
-                .with_size(300.0, 400.0)
-                .with_padding(Padding::all(20.0))
-                .with_background_color(Color::rgba8(220, 220, 255, 255))
-        )
-        // Tablet styling - medium size
-        .with_responsive_style(
-            tablet(), 
-            ResponsiveStyle::new()
-                .with_size(400.0, 450.0)
-                .with_padding(Padding::all(30.0))
-                .with_background_color(Color::rgba8(255, 220, 220, 255))
-        )
-        // Desktop styling - larger size
-        .with_responsive_style(
-            desktop(),
-            ResponsiveStyle::new()
-                .with_size(600.0, 600.0)
-                .with_padding(Padding::all(50.0))
-                .with_background_color(Color::rgba8(220, 255, 220, 255))
-        )
+        // // Mobile styling - smaller size and padding
+        // .with_responsive_style(
+        //     mobile(),
+        //     ResponsiveStyle::new()
+        //         .with_size(300.0, 400.0)
+        //         .with_padding(Padding::all(20.0))
+        //         .with_background_color(Color::rgba8(220, 220, 255, 255))
+        // )
+        // // Tablet styling - medium size
+        // .with_responsive_style(
+        //     tablet(), 
+        //     ResponsiveStyle::new()
+        //         .with_size(400.0, 450.0)
+        //         .with_padding(Padding::all(30.0))
+        //         .with_background_color(Color::rgba8(255, 220, 220, 255))
+        // )
+        // // Desktop styling - larger size
+        // .with_responsive_style(
+        //     desktop(),
+        //     ResponsiveStyle::new()
+        //         .with_size(600.0, 600.0)
+        //         .with_padding(Padding::all(50.0))
+        //         .with_background_color(Color::rgba8(220, 255, 220, 255))
+        // )
         .with_child(container2.into_container_element());
     
     let root = container.into_container_element();
