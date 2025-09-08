@@ -181,7 +181,7 @@ impl Widget for TextWidget {
         Ok(())
     }
 
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         // Check if reactive signals have changed
         let mut reactive_changed = false;
         if let Ok(mut reactive_dirty) = self.reactive_dirty.write() {

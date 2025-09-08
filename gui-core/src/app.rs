@@ -12,6 +12,7 @@ use wgpu::{Device, Queue, Surface, Instance, Adapter, SurfaceConfiguration, Text
 use gui_reactive::global_frame_scheduler;
 use gui_render::{VelloRenderer, primitives::TextRenderer};
 use crate::event::{Event, MouseEvent, KeyboardEvent, Point};
+use crate::media_query::ViewportSize;
 
 #[derive(Debug)]
 enum InternalEvent {
@@ -135,13 +136,16 @@ impl App {
         self.window.as_ref()
     }
 
-    fn handle_window_event(&self, _window_id: WindowId, event: WindowEvent) -> bool {
+    fn handle_window_event(&mut self, _window_id: WindowId, event: WindowEvent) -> bool {
         match event {
             WindowEvent::CloseRequested => {
                 return true; // Signal to close the app
             }
             WindowEvent::Resized(new_size) => {
                 println!("Window resized to: {}x{}", new_size.width, new_size.height);
+                if let Err(e) = self.handle_resize(new_size.width, new_size.height) {
+                    eprintln!("Failed to handle window resize: {}", e);
+                }
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let _ = self.internal_event_sender.send(InternalEvent::MousePositionUpdate([position.x, position.y]));
@@ -247,6 +251,36 @@ impl App {
 
     fn handle_device_event(&self, _device_id: DeviceId, _event: DeviceEvent) {
         // Handle global device events if needed
+    }
+
+    fn handle_resize(&mut self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+        if width == 0 || height == 0 {
+            return Ok(()); // Skip resize if dimensions are zero
+        }
+
+        if let (Some(surface), Some(device), Some(surface_config)) = 
+            (self.surface.as_ref(), self.device.as_ref(), self.surface_config.as_mut()) {
+            
+            // Update surface configuration
+            surface_config.width = width;
+            surface_config.height = height;
+            
+            // Reconfigure the surface
+            surface.configure(device, surface_config);
+            
+            // Update the renderer's viewport
+            if let Some(vello_renderer) = self.vello_renderer.as_mut() {
+                vello_renderer.set_viewport(width, height);
+            }
+            
+            // Update the widget manager's viewport for media queries
+            self.widget_manager.set_viewport_size(ViewportSize {
+                width: width as f32,
+                height: height as f32,
+            });
+        }
+        
+        Ok(())
     }
 
     fn render_frame(&mut self) {

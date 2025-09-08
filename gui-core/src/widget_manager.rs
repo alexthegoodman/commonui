@@ -1,5 +1,6 @@
 use crate::{Element, Widget, WidgetId, WidgetError, EventResult, WidgetUpdateContext};
 use crate::event::Event;
+use crate::media_query::{MediaQueryManager, ViewportSize};
 use std::collections::HashMap;
 use gui_reactive::{Signal, ReactiveWidgetRegistry};
 use gui_reactive::widget_registry::WidgetDirtyNotifier;
@@ -11,10 +12,12 @@ pub struct WidgetManager {
     widget_registry: HashMap<WidgetId, String>,
     dirty_widgets: Signal<Vec<WidgetId>>,
     reactive_registry: ReactiveWidgetRegistry,
+    media_query_manager: MediaQueryManager,
 }
 
 struct WidgetManagerUpdateContext<'a> {
     dirty_widgets: &'a Signal<Vec<WidgetId>>,
+    media_query_manager: &'a mut MediaQueryManager,
 }
 
 impl WidgetManager {
@@ -25,6 +28,7 @@ impl WidgetManager {
             widget_registry: HashMap::new(),
             dirty_widgets: Signal::new(Vec::new()),
             reactive_registry: ReactiveWidgetRegistry::new(),
+            media_query_manager: MediaQueryManager::new(ViewportSize { width: 800.0, height: 600.0 }),
         }
     }
 
@@ -111,10 +115,11 @@ impl WidgetManager {
     pub fn update_all(&mut self) -> Result<(), WidgetError> {
         if self.root.is_some() {
             // Create a temporary context that implements WidgetUpdateContext
-            let context = WidgetManagerUpdateContext {
+            let mut context = WidgetManagerUpdateContext {
                 dirty_widgets: &self.dirty_widgets,
+                media_query_manager: &mut self.media_query_manager,
             };
-            self.root.as_mut().unwrap().update(&context)
+            self.root.as_mut().unwrap().update(&mut context)
         } else {
             Ok(())
         }
@@ -171,6 +176,14 @@ impl WidgetManager {
     pub fn get_reactive_registry(&self) -> &ReactiveWidgetRegistry {
         &self.reactive_registry
     }
+
+    pub fn set_viewport_size(&mut self, viewport: ViewportSize) {
+        self.media_query_manager.set_viewport(viewport);
+    }
+
+    pub fn viewport_size(&self) -> ViewportSize {
+        self.media_query_manager.viewport()
+    }
 }
 
 impl<'a> WidgetUpdateContext for WidgetManagerUpdateContext<'a> {
@@ -181,11 +194,27 @@ impl<'a> WidgetUpdateContext for WidgetManagerUpdateContext<'a> {
             self.dirty_widgets.set(dirty_list);
         }
     }
+
+    fn viewport_size(&self) -> ViewportSize {
+        self.media_query_manager.viewport()
+    }
+
+    fn media_query_manager(&mut self) -> &mut MediaQueryManager {
+        self.media_query_manager
+    }
 }
 
 impl WidgetUpdateContext for WidgetManager {
     fn mark_dirty(&self, widget_id: WidgetId) {
         self.mark_widget_dirty(widget_id);
+    }
+
+    fn viewport_size(&self) -> ViewportSize {
+        self.media_query_manager.viewport()
+    }
+
+    fn media_query_manager(&mut self) -> &mut MediaQueryManager {
+        &mut self.media_query_manager
     }
 }
 

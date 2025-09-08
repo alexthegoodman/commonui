@@ -1,8 +1,11 @@
 use crate::event::Event;
+use crate::media_query::{ViewportSize, MediaQueryManager};
 use std::any::Any;
 
 pub trait WidgetUpdateContext {
     fn mark_dirty(&self, widget_id: WidgetId);
+    fn viewport_size(&self) -> ViewportSize;
+    fn media_query_manager(&mut self) -> &mut MediaQueryManager;
 }
 
 pub trait Widget: Send + Sync {
@@ -14,7 +17,7 @@ pub trait Widget: Send + Sync {
         Ok(())
     }
     
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         Ok(())
     }
     

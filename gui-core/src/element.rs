@@ -66,7 +66,7 @@ impl Element {
         }
     }
     
-    pub fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    pub fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         match self {
             Element::Widget(widget) => {
                 // println!("widget update");

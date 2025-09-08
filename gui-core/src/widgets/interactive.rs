@@ -164,7 +164,7 @@ impl Widget for ButtonWidget {
         Ok(())
     }
 
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
@@ -446,7 +446,7 @@ impl Widget for InputWidget {
         Ok(())
     }
 
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
@@ -699,7 +699,7 @@ impl Widget for SliderWidget {
         Ok(())
     }
 
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         if self.dirty {
             ctx.mark_dirty(self.id);
         }

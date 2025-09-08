@@ -1,9 +1,11 @@
 use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 use crate::event::Event;
 use crate::element::Element;
+use crate::media_query::{MediaQuery, ResponsiveWidget};
 use gui_render::primitives::{Rectangle, Shadow};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::collections::HashMap;
 use vello::peniko::Color;
 
 static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(1000);
@@ -20,6 +22,8 @@ pub struct BoxWidget {
     shadow: Option<Shadow>,
     children: Vec<Element>,
     pub dirty: bool,
+    // Responsive styling
+    responsive_styles: HashMap<MediaQuery, ResponsiveStyle>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -28,6 +32,15 @@ pub struct Padding {
     pub right: f32,
     pub bottom: f32,
     pub left: f32,
+}
+
+#[derive(Clone, Debug)]
+pub struct ResponsiveStyle {
+    pub width: Option<f32>,
+    pub height: Option<f32>,
+    pub background_color: Option<Color>,
+    pub padding: Option<Padding>,
+    pub border_radius: Option<f32>,
 }
 
 impl Padding {
@@ -79,6 +92,7 @@ impl BoxWidget {
             shadow: None,
             children: Vec::new(),
             dirty: true,
+            responsive_styles: HashMap::new(),
         }
     }
 
@@ -109,6 +123,12 @@ impl BoxWidget {
 
     pub fn with_shadow(mut self, offset_x: f32, offset_y: f32, blur_radius: f32, color: Color) -> Self {
         self.shadow = Some(Shadow::new(self.x, self.y, self.width, self.height, offset_x, offset_y, blur_radius, color));
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_responsive_style(mut self, media_query: MediaQuery, style: ResponsiveStyle) -> Self {
+        self.responsive_styles.insert(media_query, style);
         self.dirty = true;
         self
     }
@@ -193,7 +213,10 @@ impl Widget for BoxWidget {
         Ok(())
     }
 
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        // Apply responsive styles
+        self.apply_responsive_styles(ctx);
+        
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
@@ -258,6 +281,42 @@ impl Widget for BoxWidget {
 
     fn get_id(&self) -> WidgetId {
         self.id
+    }
+}
+
+impl ResponsiveWidget for BoxWidget {
+    fn apply_responsive_styles(&mut self, ctx: &mut dyn crate::WidgetUpdateContext) {
+        let mut applied_any = false;
+        
+        // Apply responsive styles based on matching media queries
+        for (media_query, style) in &self.responsive_styles.clone() {
+            if ctx.media_query_manager().matches(media_query) {
+                if let Some(width) = style.width {
+                    self.width = width;
+                    applied_any = true;
+                }
+                if let Some(height) = style.height {
+                    self.height = height;
+                    applied_any = true;
+                }
+                if let Some(background_color) = style.background_color {
+                    self.background_color = Some(background_color);
+                    applied_any = true;
+                }
+                if let Some(padding) = style.padding {
+                    self.padding = padding;
+                    applied_any = true;
+                }
+                if let Some(border_radius) = style.border_radius {
+                    self.border_radius = border_radius;
+                    applied_any = true;
+                }
+            }
+        }
+        
+        if applied_any {
+            self.dirty = true;
+        }
     }
 }
 
@@ -348,7 +407,7 @@ impl Widget for StackWidget {
         Ok(())
     }
 
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
@@ -424,4 +483,48 @@ pub fn container() -> BoxWidget {
 
 pub fn stack() -> StackWidget {
     StackWidget::new()
+}
+
+// Helper functions for creating responsive styles
+impl ResponsiveStyle {
+    pub fn new() -> Self {
+        Self {
+            width: None,
+            height: None,
+            background_color: None,
+            padding: None,
+            border_radius: None,
+        }
+    }
+
+    pub fn with_size(mut self, width: f32, height: f32) -> Self {
+        self.width = Some(width);
+        self.height = Some(height);
+        self
+    }
+
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.width = Some(width);
+        self
+    }
+
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.height = Some(height);
+        self
+    }
+
+    pub fn with_background_color(mut self, color: Color) -> Self {
+        self.background_color = Some(color);
+        self
+    }
+
+    pub fn with_padding(mut self, padding: Padding) -> Self {
+        self.padding = Some(padding);
+        self
+    }
+
+    pub fn with_border_radius(mut self, radius: f32) -> Self {
+        self.border_radius = Some(radius);
+        self
+    }
 }

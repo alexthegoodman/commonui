@@ -219,7 +219,7 @@ impl Widget for RowWidget {
         Ok(())
     }
 
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
@@ -484,7 +484,7 @@ impl Widget for ColumnWidget {
         Ok(())
     }
 
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
@@ -661,7 +661,7 @@ impl Widget for GridWidget {
         Ok(())
     }
 
-    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
