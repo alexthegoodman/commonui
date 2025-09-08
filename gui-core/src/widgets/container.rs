@@ -1,7 +1,7 @@
 use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 use crate::event::Event;
 use crate::element::Element;
-use gui_render::primitives::Rectangle;
+use gui_render::primitives::{Rectangle, Shadow};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use vello::peniko::Color;
@@ -17,6 +17,7 @@ pub struct BoxWidget {
     background_color: Option<Color>,
     border_radius: f32,
     padding: Padding,
+    shadow: Option<Shadow>,
     children: Vec<Element>,
     pub dirty: bool,
 }
@@ -75,6 +76,7 @@ impl BoxWidget {
             background_color: None,
             border_radius: 0.0,
             padding: Padding::default(),
+            shadow: None,
             children: Vec::new(),
             dirty: true,
         }
@@ -101,6 +103,12 @@ impl BoxWidget {
 
     pub fn with_padding(mut self, padding: Padding) -> Self {
         self.padding = padding;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_shadow(mut self, offset_x: f32, offset_y: f32, blur_radius: f32, color: Color) -> Self {
+        self.shadow = Some(Shadow::new(self.x, self.y, self.width, self.height, offset_x, offset_y, blur_radius, color));
         self.dirty = true;
         self
     }
@@ -158,6 +166,13 @@ impl BoxWidget {
         self.background_color.map(|color| {
             Rectangle::new(self.x, self.y, self.width, self.height, color)
                 .with_border_radius(self.border_radius)
+        })
+    }
+
+    pub fn create_shadow(&self) -> Option<Shadow> {
+        self.shadow.as_ref().map(|shadow| {
+            Shadow::new(self.x, self.y, self.width, self.height, 
+                       shadow.offset_x, shadow.offset_y, shadow.blur_radius, shadow.color)
         })
     }
 }
@@ -252,6 +267,7 @@ pub struct StackWidget {
     y: f32,
     width: f32,
     height: f32,
+    shadow: Option<Shadow>,
     children: Vec<Element>,
     dirty: bool,
 }
@@ -264,6 +280,7 @@ impl StackWidget {
             y: 0.0,
             width: 0.0,
             height: 0.0,
+            shadow: None,
             children: Vec::new(),
             dirty: true,
         }
@@ -299,6 +316,19 @@ impl StackWidget {
     pub fn add_child(&mut self, child: Element) {
         self.children.push(child);
         self.dirty = true;
+    }
+
+    pub fn with_shadow(mut self, offset_x: f32, offset_y: f32, blur_radius: f32, color: Color) -> Self {
+        self.shadow = Some(Shadow::new(self.x, self.y, self.width, self.height, offset_x, offset_y, blur_radius, color));
+        self.dirty = true;
+        self
+    }
+
+    pub fn create_shadow(&self) -> Option<Shadow> {
+        self.shadow.as_ref().map(|shadow| {
+            Shadow::new(self.x, self.y, self.width, self.height, 
+                       shadow.offset_x, shadow.offset_y, shadow.blur_radius, shadow.color)
+        })
     }
 }
 

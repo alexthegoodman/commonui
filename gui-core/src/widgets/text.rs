@@ -1,7 +1,7 @@
 use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 use crate::event::Event;
 use gui_reactive::Signal;
-use gui_render::primitives::{Text as TextPrimitive, TextRenderer};
+use gui_render::primitives::{Text as TextPrimitive, TextRenderer, Shadow};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
@@ -18,6 +18,7 @@ pub struct TextWidget {
     italic: Signal<bool>,
     x: f32,
     y: f32,
+    shadow: Option<Shadow>,
     pub dirty: bool,
     text_renderer: Option<TextRenderer>,
     // Shared dirty flag that reactive signals can set
@@ -35,6 +36,7 @@ impl TextWidget {
             italic: Signal::new(false),
             x: 0.0,
             y: 0.0,
+            shadow: None,
             dirty: true,
             text_renderer: None,
             reactive_dirty: Arc::new(RwLock::new(false)),
@@ -61,6 +63,15 @@ impl TextWidget {
 
     pub fn with_italic(mut self, italic: bool) -> Self {
         self.italic = Signal::new(italic);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_shadow(mut self, offset_x: f32, offset_y: f32, blur_radius: f32, color: Color) -> Self {
+        // Calculate approximate text dimensions for shadow
+        let approx_width = 100.0; // Will be updated when positioned
+        let approx_height = 20.0;
+        self.shadow = Some(Shadow::new(self.x, self.y, approx_width, approx_height, offset_x, offset_y, blur_radius, color));
         self.dirty = true;
         self
     }
@@ -122,6 +133,16 @@ impl TextWidget {
         )
         .with_weight(self.font_weight.get())
         .with_italic(self.italic.get())
+    }
+
+    pub fn create_shadow(&self) -> Option<Shadow> {
+        self.shadow.as_ref().map(|shadow| {
+            // Use approximate text dimensions for shadow
+            let width = self.content.get().len() as f32 * self.font_size.get() * 0.6;
+            let height = self.font_size.get();
+            Shadow::new(self.x, self.y, width, height, 
+                       shadow.offset_x, shadow.offset_y, shadow.blur_radius, shadow.color)
+        })
     }
 }
 

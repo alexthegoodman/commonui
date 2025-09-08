@@ -24,25 +24,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Message changed to: {}", msg);
     });
     
-    // Create text that reacts to the message signal
+    // Create text that reacts to the message signal with shadow
     let hello_text = text_signal(message_signal.clone())
         .with_font_size(24.0)
-        .with_color(Color::rgba8(250, 250, 200, 255));
+        .with_color(Color::rgba8(250, 250, 200, 255))
+        .with_shadow(2.0, 2.0, 4.0, Color::rgba8(0, 0, 0, 128));
     
     // Create a reactive computed signal for the subtitle
     let subtitle_signal = Signal::new(format!("Clicked {} times", counter_signal.get()));
     
-    // Create reactive subtitle that shows counter
+    // Create reactive subtitle that shows counter with shadow
     let subtitle_text = text_signal(subtitle_signal.clone())
         .with_font_size(16.0)
-        .with_color(Color::rgba8(100, 100, 100, 255));
+        .with_color(Color::rgba8(100, 100, 100, 255))
+        .with_shadow(1.0, 1.0, 2.0, Color::rgba8(0, 0, 0, 80));
     
-    // Create a button that will update the counter signal when clicked
+    // Create a button with shadow that will update the counter signal when clicked
     let counter_for_button = counter_signal.clone();
     let message_for_button = message_signal.clone();
     let subtitle_for_button = subtitle_signal.clone();
     let click_button = button("Click Me!")
         .with_size(120.0, 40.0)
+        .with_shadow(13.0, 13.0, 16.0, Color::rgba8(0, 0, 0, 100))
         .on_click(move || {
             let current_count = counter_for_button.get();
             let new_count = current_count + 1;
@@ -74,18 +77,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(subtitle_text)))
         .with_child(Element::new_widget(Box::new(click_button)));
 
-        // Create the root element with some padding
+        // Create the inner container with shadow
     let container2 = container()
         .with_size(300.0, 300.0)
         .with_background_color(Color::rgba8(240, 40, 50, 255))
         .with_padding(Padding::only(20.0, 0.0, 0.0, 0.0))
+        .with_shadow(15.0, 15.0, 30.0, Color::rgba8(0, 0, 0, 150))
         .with_child(main_column.into_container_element());
     
-    // Create the root element with some padding  
+    // Create the root element with subtle shadow and padding  
     let container = container()
         .with_size(500.0, 500.0)
         .with_background_color(Color::rgba8(40, 40, 250, 255))
         .with_padding(Padding::all(40.0))
+        .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
         .with_child(container2.into_container_element());
     
     let root = container.into_container_element();

@@ -2,7 +2,7 @@ use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion,
 use crate::event::Event;
 use winit::event::ElementState;
 use gui_reactive::Signal;
-use gui_render::primitives::Rectangle;
+use gui_render::primitives::{Rectangle, Shadow};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use gui_render::primitives::Text;
@@ -31,6 +31,7 @@ pub struct ButtonWidget {
     pressed_color: Color,
     disabled_color: Color,
     border_radius: f32,
+    shadow: Option<Shadow>,
     on_click: Option<Box<dyn Fn() + Send + Sync>>,
     pub dirty: bool,
 }
@@ -50,6 +51,7 @@ impl ButtonWidget {
             pressed_color: Color::rgba8(80, 130, 235, 255),     // Darker blue
             disabled_color: Color::rgba8(150, 150, 150, 255),   // Gray
             border_radius: 4.0,
+            shadow: None,
             on_click: None,
             dirty: true,
         }
@@ -72,6 +74,12 @@ impl ButtonWidget {
 
     pub fn with_border_radius(mut self, radius: f32) -> Self {
         self.border_radius = radius;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_shadow(mut self, offset_x: f32, offset_y: f32, blur_radius: f32, color: Color) -> Self {
+        self.shadow = Some(Shadow::new(self.x, self.y, self.width, self.height, offset_x, offset_y, blur_radius, color));
         self.dirty = true;
         self
     }
@@ -120,6 +128,13 @@ impl ButtonWidget {
     pub fn create_background_rectangle(&self) -> Rectangle {
         Rectangle::new(self.x, self.y, self.width, self.height, self.get_current_color())
             .with_border_radius(self.border_radius)
+    }
+
+    pub fn create_shadow(&self) -> Option<Shadow> {
+        self.shadow.as_ref().map(|shadow| {
+            Shadow::new(self.x, self.y, self.width, self.height, 
+                       shadow.offset_x, shadow.offset_y, shadow.blur_radius, shadow.color)
+        })
     }
     
     pub fn create_text_primitive(&self) -> Option<gui_render::primitives::Text> {
@@ -269,6 +284,7 @@ pub struct InputWidget {
     text_color: Color,
     placeholder_color: Color,
     border_radius: f32,
+    shadow: Option<Shadow>,
     on_change: Option<Box<dyn Fn(&str) + Send + Sync>>,
     on_submit: Option<Box<dyn Fn(&str) + Send + Sync>>,
     dirty: bool,
@@ -292,6 +308,7 @@ impl InputWidget {
             text_color: Color::rgba8(0, 0, 0, 255),             // Black
             placeholder_color: Color::rgba8(150, 150, 150, 255), // Gray
             border_radius: 4.0,
+            shadow: None,
             on_change: None,
             on_submit: None,
             dirty: true,
@@ -332,6 +349,12 @@ impl InputWidget {
         F: Fn(&str) + Send + Sync + 'static,
     {
         self.on_submit = Some(Box::new(callback));
+        self
+    }
+
+    pub fn with_shadow(mut self, offset_x: f32, offset_y: f32, blur_radius: f32, color: Color) -> Self {
+        self.shadow = Some(Shadow::new(self.x, self.y, self.width, self.height, offset_x, offset_y, blur_radius, color));
+        self.dirty = true;
         self
     }
 
@@ -402,6 +425,13 @@ impl InputWidget {
         Rectangle::new(self.x, self.y, self.width, self.height, self.background_color)
             .with_border_radius(self.border_radius)
             .with_stroke_width(2.0)
+    }
+
+    pub fn create_shadow(&self) -> Option<Shadow> {
+        self.shadow.as_ref().map(|shadow| {
+            Shadow::new(self.x, self.y, self.width, self.height, 
+                       shadow.offset_x, shadow.offset_y, shadow.blur_radius, shadow.color)
+        })
     }
 }
 
@@ -513,6 +543,7 @@ pub struct SliderWidget {
     thumb_color: Color,
     thumb_hover_color: Color,
     thumb_radius: f32,
+    shadow: Option<Shadow>,
     on_change: Option<Box<dyn Fn(f32) + Send + Sync>>,
     dirty: bool,
 }
@@ -536,6 +567,7 @@ impl SliderWidget {
             thumb_color: Color::rgba8(255, 255, 255, 255),      // White
             thumb_hover_color: Color::rgba8(240, 240, 240, 255), // Light gray
             thumb_radius: 10.0,
+            shadow: None,
             on_change: None,
             dirty: true,
         }
@@ -646,6 +678,13 @@ impl SliderWidget {
             track_height,
             self.fill_color,
         ).with_border_radius(2.0)
+    }
+
+    pub fn create_shadow(&self) -> Option<Shadow> {
+        self.shadow.as_ref().map(|shadow| {
+            Shadow::new(self.x, self.y, self.width, self.height, 
+                       shadow.offset_x, shadow.offset_y, shadow.blur_radius, shadow.color)
+        })
     }
 }
 
