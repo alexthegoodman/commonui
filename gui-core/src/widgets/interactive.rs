@@ -187,6 +187,8 @@ impl Widget for ButtonWidget {
                         },
                     }
                 } else if mouse_event.state == ElementState::Pressed {
+                    println!("pressed {:?} {:?}", mouse_event.position.x as f32, mouse_event.position.y as f32);
+
                     // Mouse down
                     if inside {
                         self.state = ButtonState::Pressed;

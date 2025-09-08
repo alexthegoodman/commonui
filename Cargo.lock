@@ -337,6 +337,7 @@ name = "commonui-examples"
 version = "0.1.0"
 dependencies = [
  "gui-core",
+ "gui-reactive",
  "tokio",
  "vello",
 ]

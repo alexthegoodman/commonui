@@ -12,12 +12,18 @@ use wgpu::{Device, Queue, Surface, Instance, Adapter, SurfaceConfiguration, Text
 use gui_reactive::global_frame_scheduler;
 use gui_render::{VelloRenderer, primitives::TextRenderer};
 use crate::event::{Event, MouseEvent, KeyboardEvent, Point};
+
+#[derive(Debug)]
+enum InternalEvent {
+    MousePositionUpdate([f64; 2]),
+    GuiEvent(Event),
+}
 use crate::{WidgetManager, Element};
 
 pub struct App {
     window: Option<Arc<Window>>,
-    event_sender: mpsc::UnboundedSender<Event>,
-    event_receiver: mpsc::UnboundedReceiver<Event>,
+    internal_event_sender: mpsc::UnboundedSender<InternalEvent>,
+    internal_event_receiver: mpsc::UnboundedReceiver<InternalEvent>,
     widget_manager: WidgetManager,
     // Rendering components
     wgpu_instance: Option<Instance>,
@@ -30,17 +36,18 @@ pub struct App {
     text_renderer: Option<TextRenderer>,
     // Update timing
     last_full_update: Instant,
-    full_update_count: i32
+    full_update_count: i32,
+    last_mouse_position: [f64; 2],
 }
 
 impl App {
     pub fn new() -> Self {
-        let (event_sender, event_receiver) = mpsc::unbounded_channel();
+        let (internal_event_sender, internal_event_receiver) = mpsc::unbounded_channel();
         
         Self {
             window: None,
-            event_sender,
-            event_receiver,
+            internal_event_sender,
+            internal_event_receiver,
             widget_manager: WidgetManager::new(),
             wgpu_instance: None,
             surface: None,
@@ -52,6 +59,7 @@ impl App {
             text_renderer: None,
             last_full_update: Instant::now(),
             full_update_count: 0,
+            last_mouse_position: [0.0, 0.0]
         }
     }
 
@@ -136,20 +144,21 @@ impl App {
                 println!("Window resized to: {}x{}", new_size.width, new_size.height);
             }
             WindowEvent::CursorMoved { position, .. } => {
-                let _ = self.event_sender.send(Event::Mouse(MouseEvent {
+                let _ = self.internal_event_sender.send(InternalEvent::MousePositionUpdate([position.x, position.y]));
+                let _ = self.internal_event_sender.send(InternalEvent::GuiEvent(Event::Mouse(MouseEvent {
                     position: Point::new(position.x, position.y),
                     button: None,
                     state: ElementState::Released,
                     modifiers: ModifiersState::default(),
-                }));
+                })));
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                let _ = self.event_sender.send(Event::Mouse(MouseEvent {
-                    position: Point::new(0.0, 0.0), // Will be updated with actual position
+                let _ = self.internal_event_sender.send(InternalEvent::GuiEvent(Event::Mouse(MouseEvent {
+                    position: Point::new(self.last_mouse_position[0], self.last_mouse_position[1]),
                     button: Some(button),
                     state,
                     modifiers: ModifiersState::default(),
-                }));
+                })));
             }
             WindowEvent::KeyboardInput { 
                 event,
@@ -223,12 +232,12 @@ impl App {
                         _ => None,
                     };
                     
-                    let _ = self.event_sender.send(Event::Keyboard(KeyboardEvent {
+                    let _ = self.internal_event_sender.send(InternalEvent::GuiEvent(Event::Keyboard(KeyboardEvent {
                         key_code,
                         scancode: keycode,
                         state: event.state,
                         modifiers: ModifiersState::default(),
-                    }));
+                    })));
                 }
             }
             _ => {}
@@ -241,13 +250,20 @@ impl App {
     }
 
     fn render_frame(&mut self) {
-        // Process any pending events and trigger per-element updates on interactions
+        // Process any pending internal events
         let mut needs_immediate_update = false;
-        while let Ok(event) = self.event_receiver.try_recv() {
-            let result = self.widget_manager.handle_event(&event);
-            // If event was handled (interaction occurred), trigger immediate update
-            if matches!(result, crate::EventResult::Handled) {
-                needs_immediate_update = true;
+        while let Ok(internal_event) = self.internal_event_receiver.try_recv() {
+            match internal_event {
+                InternalEvent::MousePositionUpdate(position) => {
+                    self.last_mouse_position = position;
+                }
+                InternalEvent::GuiEvent(event) => {
+                    let result = self.widget_manager.handle_event(&event);
+                    // If event was handled (interaction occurred), trigger immediate update
+                    if matches!(result, crate::EventResult::Handled) {
+                        needs_immediate_update = true;
+                    }
+                }
             }
         }
         
