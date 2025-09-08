@@ -4,6 +4,8 @@ use std::sync::Arc;
 use std::num::NonZeroUsize;
 use crate::scene_cache::SceneCache;
 
+pub type CustomRenderFn = Box<dyn Fn(&Device, &Queue, &TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>> + Send + Sync>;
+
 #[derive(Debug)]
 pub enum RenderError {
     VelloError(Box<dyn std::error::Error>),
@@ -43,6 +45,7 @@ pub struct VelloRenderer {
     scene_cache: SceneCache,
     viewport_width: u32,
     viewport_height: u32,
+    custom_render_fns: Vec<CustomRenderFn>,
 }
 
 impl VelloRenderer {
@@ -66,6 +69,7 @@ impl VelloRenderer {
             scene_cache: SceneCache::new(),
             viewport_width: 0,
             viewport_height: 0,
+            custom_render_fns: Vec::new(),
         })
     }
 
@@ -91,8 +95,38 @@ impl VelloRenderer {
     }
 
     pub fn render_to_texture_view(&mut self, view: &TextureView, width: u32, height: u32) -> Result<(), RenderError> {
+        // Execute custom render functions BEFORE Vello renders
+        // This allows custom GPU commands to render to the same texture view
+        self.execute_custom_render_fns(view, width, height)?;
+
         let params = RenderParams {
-            base_color: vello::peniko::Color::BLACK,
+            base_color: vello::peniko::Color::TRANSPARENT, // Changed to transparent so custom rendering shows through
+            width,
+            height,
+            antialiasing_method: AaConfig::Msaa16,
+        };
+
+        self.renderer.render_to_texture(&self.device, &self.queue, &self.scene, view, &params)?;
+        
+        Ok(())
+    }
+
+    pub fn render_to_texture_view_with_direct<F>(&mut self, view: &TextureView, width: u32, height: u32, direct_render_fn: Option<F>) -> Result<(), RenderError> 
+    where 
+        F: FnOnce(&wgpu::Device, &wgpu::Queue, &TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>>
+    {
+        // Execute custom render functions BEFORE Vello renders
+        self.execute_custom_render_fns(view, width, height)?;
+        
+        // Execute direct render function if provided
+        if let Some(render_fn) = direct_render_fn {
+            if let Err(e) = render_fn(&self.device, &self.queue, view, width, height) {
+                eprintln!("Direct render function error: {}", e);
+            }
+        }
+
+        let params = RenderParams {
+            base_color: vello::peniko::Color::TRANSPARENT,
             width,
             height,
             antialiasing_method: AaConfig::Msaa16,
@@ -122,5 +156,22 @@ impl VelloRenderer {
 
     pub fn end_frame(&mut self) {
         // Frame complete - could add any cleanup here
+    }
+
+    pub fn add_custom_render_fn(&mut self, render_fn: CustomRenderFn) {
+        self.custom_render_fns.push(render_fn);
+    }
+
+    pub fn clear_custom_render_fns(&mut self) {
+        self.custom_render_fns.clear();
+    }
+
+    fn execute_custom_render_fns(&self, view: &TextureView, width: u32, height: u32) -> Result<(), RenderError> {
+        for render_fn in &self.custom_render_fns {
+            if let Err(e) = render_fn(&self.device, &self.queue, view, width, height) {
+                eprintln!("Custom render function error: {}", e);
+            }
+        }
+        Ok(())
     }
 }

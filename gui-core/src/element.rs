@@ -4,6 +4,7 @@ use crate::widgets::text::TextWidget;
 use crate::widgets::container::BoxWidget;
 use crate::widgets::interactive::{ButtonWidget, InputWidget, SliderWidget};
 use crate::widgets::layout::{ColumnWidget, RowWidget};
+use crate::widgets::canvas::CanvasWidget;
 
 use vello::Scene;
 
@@ -192,21 +193,49 @@ impl Element {
         }
     }
     
-    pub fn render(&self, scene: &mut Scene, text_renderer: &mut gui_render::primitives::TextRenderer) -> Result<RenderData, WidgetError> {
+    pub fn execute_direct_render_functions(&self, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, view_width: u32, view_height: u32) -> Result<(), Box<dyn std::error::Error>> {
         match self {
             Element::Widget(widget) => {
-                self.render_widget(widget.as_ref(), scene, text_renderer)
+                if let Some(canvas_widget) = widget.as_any().downcast_ref::<CanvasWidget>() {
+                    if canvas_widget.has_direct_render_func() {
+                        canvas_widget.execute_direct_render(device, queue, view, view_width, view_height)?;
+                    }
+                }
+            },
+            Element::Container { widget, children } => {
+                if let Some(canvas_widget) = widget.as_any().downcast_ref::<CanvasWidget>() {
+                    if canvas_widget.has_direct_render_func() {
+                        canvas_widget.execute_direct_render(device, queue, view, view_width, view_height)?;
+                    }
+                }
+                for child in children {
+                    child.execute_direct_render_functions(device, queue, view, view_width, view_height)?;
+                }
+            },
+            Element::Fragment(children) => {
+                for child in children {
+                    child.execute_direct_render_functions(device, queue, view, view_width, view_height)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn render(&self, scene: &mut Scene, text_renderer: &mut gui_render::primitives::TextRenderer, device: Option<&wgpu::Device>, queue: Option<&wgpu::Queue>) -> Result<RenderData, WidgetError> {
+        match self {
+            Element::Widget(widget) => {
+                self.render_widget(widget.as_ref(), scene, text_renderer, device, queue)
             },
             Element::Container { widget, children } => {
                 // First render the container widget itself
-                let container_render_data = self.render_widget(widget.as_ref(), scene, text_renderer)?;
+                let container_render_data = self.render_widget(widget.as_ref(), scene, text_renderer, device, queue)?;
                 
                 // Then render all children
                 let mut all_dirty_regions = container_render_data.dirty_regions;
                 let mut max_z_index = container_render_data.z_index;
                 
                 for child in children {
-                    let child_render_data = child.render(scene, text_renderer)?;
+                    let child_render_data = child.render(scene, text_renderer, device, queue)?;
                     all_dirty_regions.extend(child_render_data.dirty_regions);
                     max_z_index = max_z_index.max(child_render_data.z_index);
                 }
@@ -221,7 +250,7 @@ impl Element {
                 let mut max_z_index = 0;
                 
                 for child in children {
-                    let child_render_data = child.render(scene, text_renderer)?;
+                    let child_render_data = child.render(scene, text_renderer, device, queue)?;
                     all_dirty_regions.extend(child_render_data.dirty_regions);
                     max_z_index = max_z_index.max(child_render_data.z_index);
                 }
@@ -234,7 +263,7 @@ impl Element {
         }
     }
     
-    fn render_widget(&self, widget: &dyn Widget, scene: &mut Scene, text_renderer: &mut gui_render::primitives::TextRenderer) -> Result<RenderData, WidgetError> {
+    fn render_widget(&self, widget: &dyn Widget, scene: &mut Scene, text_renderer: &mut gui_render::primitives::TextRenderer, device: Option<&wgpu::Device>, queue: Option<&wgpu::Queue>) -> Result<RenderData, WidgetError> {
         // Get the base render data from the widget
         let render_data = widget.render()?;
         
@@ -275,6 +304,12 @@ impl Element {
             // Render fill
             let fill_rect = slider_widget.create_fill_rectangle();
             fill_rect.draw(scene);
+        } else if let Some(canvas_widget) = widget.as_any().downcast_ref::<CanvasWidget>() {
+            // Render Canvas widget with custom render function
+            if let (Some(device), Some(queue)) = (device, queue) {
+                canvas_widget.render_to_scene(scene, device, queue)?;
+            }
+            // Note: Direct render functions are handled separately in the App layer
         }
         
         Ok(render_data)
@@ -416,7 +451,7 @@ impl Element {
         // println!("Positioning child at x={}, y={}", x, y);
         match child {
             Element::Widget(widget) => {
-                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget, canvas::CanvasWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     // println!("  Positioning text widget at x={}, y={}", x, y);
@@ -434,10 +469,12 @@ impl Element {
                     input_widget.set_position(x, y);
                 } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
                     slider_widget.set_position(x, y);
+                } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
+                    canvas_widget.set_position(x, y);
                 }
             },
             Element::Container { widget, .. } => {
-                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget, canvas::CanvasWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     // println!("  Positioning text widget (container) at x={}, y={}", x, y);
@@ -451,6 +488,8 @@ impl Element {
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     // println!("  Positioning column widget (container) at x={}, y={}", x, y);
                     column_widget.set_position(x, y);
+                } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
+                    canvas_widget.set_position(x, y);
                 }
             },
             Element::Fragment(_) => {
@@ -462,7 +501,7 @@ impl Element {
     fn position_child_element_for_alignment(child: &mut Element, x: f32, y: f32, container_width: f32, _height: f32, cross_alignment: crate::widgets::layout::CrossAxisAlignment) {
         match child {
             Element::Widget(widget) => {
-                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget, canvas::CanvasWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     let final_x = match cross_alignment {
@@ -493,10 +532,12 @@ impl Element {
                     input_widget.set_position(x, y);
                 } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
                     slider_widget.set_position(x, y);
+                } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
+                    canvas_widget.set_position(x, y);
                 }
             },
             Element::Container { widget, .. } => {
-                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget, canvas::CanvasWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     let final_x = match cross_alignment {
@@ -527,6 +568,8 @@ impl Element {
                     input_widget.set_position(x, y);
                 } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
                     slider_widget.set_position(x, y);
+                } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
+                    canvas_widget.set_position(x, y);
                 }
             },
             Element::Fragment(_) => {

@@ -336,10 +336,12 @@ dependencies = [
 name = "commonui-examples"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "gui-core",
  "gui-reactive",
  "tokio",
  "vello",
+ "wgpu",
 ]
 
 [[package]]

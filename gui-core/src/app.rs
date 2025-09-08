@@ -427,19 +427,40 @@ impl App {
         // Render the entire widget tree using the new Element::render method
         if let Some(root) = self.widget_manager.root() {
             if let Some(text_renderer) = &mut self.text_renderer {
-                if let Err(e) = root.render(vello_renderer.scene(), text_renderer) {
+                let device = self.device.as_ref().map(|d| d.as_ref());
+                let queue = self.queue.as_ref().map(|q| q.as_ref());
+                if let Err(e) = root.render(vello_renderer.scene(), text_renderer, device, queue) {
                     eprintln!("Widget render error: {:?}", e);
                 }
             }
         }
         
-        // Render to surface
-        vello_renderer.render_to_surface(surface, surface_config.width, surface_config.height)?;
+        // Render to surface with direct render function
+        let width = surface_config.width;
+        let height = surface_config.height;
+        vello_renderer.set_viewport(width, height);
+        
+        let surface_texture = surface.get_current_texture()?;
+        let view = surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        
+        // Execute direct render functions from Canvas widgets BEFORE Vello renders
+        if let Some(root) = self.widget_manager.root() {
+            if let (Some(device), Some(queue)) = (self.device.as_ref(), self.queue.as_ref()) {
+                if let Err(e) = root.execute_direct_render_functions(device, queue, &view, width, height) {
+                    eprintln!("Direct render error: {:?}", e);
+                }
+            }
+        }
+        
+        // Now render Vello content on top
+        vello_renderer.render_to_texture_view(&view, width, height)?;
+        surface_texture.present();
         
         // End frame
         vello_renderer.end_frame();
         
         Ok(())
     }
+
 
 }
