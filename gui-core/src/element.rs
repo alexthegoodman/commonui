@@ -1,4 +1,4 @@
-use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData};
+use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, WidgetUpdateContext};
 use crate::event::Event;
 use crate::widgets::text::TextWidget;
 use crate::widgets::container::BoxWidget;
@@ -66,23 +66,38 @@ impl Element {
         }
     }
     
-    pub fn update(&mut self) -> Result<(), WidgetError> {
+    pub fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         match self {
-            Element::Widget(widget) => widget.update(),
+            Element::Widget(widget) => {
+                // println!("widget update");
+                // widget should have its own positioning logic within?
+                widget.update(ctx)
+            },
             Element::Container { widget, children } => {
-                widget.update()?;
+                widget.update(ctx)?;
                 
                 // Position children for layout widgets
-                Element::position_children_for_layout_widget_static(widget.as_ref(), children);
+                if let Some(column_widget) = widget.as_any().downcast_ref::<ColumnWidget>() {
+                    let (col_x, col_y) = column_widget.get_position();
+                    let (col_width, col_height) = column_widget.get_size();
+                    // println!("column {:?} {:?}", col_x, col_y);
+                    Element::position_children_for_column_with_coords(column_widget, children, col_x, col_y, col_width, col_height);
+                } else if let Some(row_widget) = widget.as_any().downcast_ref::<RowWidget>() {
+                    let (row_x, row_y) = row_widget.get_position();
+                    let (row_width, row_height) = row_widget.get_size();
+                    Element::position_children_for_row_with_coords(row_widget, children, row_x, row_y, row_width, row_height);
+                } else if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
+                    Element::position_children_for_box_static(box_widget, children);
+                }
                 
                 for child in children.iter_mut() {
-                    child.update()?;
+                    child.update(ctx)?;
                 }
                 Ok(())
             },
             Element::Fragment(children) => {
                 for child in children.iter_mut() {
-                    child.update()?;
+                    child.update(ctx)?;
                 }
                 Ok(())
             }
@@ -242,15 +257,6 @@ impl Element {
         Ok(render_data)
     }
     
-    fn position_children_for_layout_widget_static(widget: &dyn Widget, children: &mut Vec<Element>) {
-        if let Some(column_widget) = widget.as_any().downcast_ref::<ColumnWidget>() {
-            Element::position_children_for_column_static(column_widget, children);
-        } else if let Some(row_widget) = widget.as_any().downcast_ref::<RowWidget>() {
-            Element::position_children_for_row_static(row_widget, children);
-        } else if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
-            Element::position_children_for_box_static(box_widget, children);
-        }
-    }
     
     fn position_children_for_box_static(box_widget: &BoxWidget, children: &mut Vec<Element>) {
         if children.is_empty() {
@@ -260,18 +266,31 @@ impl Element {
         let (content_x, content_y, content_width, content_height) = box_widget.get_content_area();
         // println!("Box content area: x={}, y={}, w={}, h={}", content_x, content_y, content_width, content_height);
         
-        // Position all children at the content area position and let layout widgets handle their own children
+        // First, position all children at the content area position
         for child in children.iter_mut() {
             Element::position_child_element_static(child, content_x, content_y, content_width, content_height);
-            
-            // If the child is a container with a layout widget, apply its layout logic
+        }
+        
+        // Then, let layout widgets handle their own children (after they've been positioned)
+        for child in children.iter_mut() {
             if let Element::Container { widget, children: child_children } = child {
-                Element::position_children_for_layout_widget_static(widget.as_ref(), child_children);
+                // Get the widget's current position and size
+                if let Some(column_widget) = widget.as_any().downcast_ref::<ColumnWidget>() {
+                    let (col_x, col_y) = column_widget.get_position();
+                    let (col_width, col_height) = column_widget.get_size();
+                    // println!("Position column {:?} {:?}", col_x, col_y);
+                    // sets positions for all children
+                    Element::position_children_for_column_with_coords(column_widget, child_children, col_x, col_y, col_width, col_height);
+                } else if let Some(row_widget) = widget.as_any().downcast_ref::<RowWidget>() {
+                    let (row_x, row_y) = row_widget.get_position();
+                    let (row_width, row_height) = row_widget.get_size();
+                    Element::position_children_for_row_with_coords(row_widget, child_children, row_x, row_y, row_width, row_height);
+                }
             }
         }
     }
     
-    fn position_children_for_column_static(column_widget: &ColumnWidget, children: &mut Vec<Element>) {
+    fn position_children_for_column_with_coords(column_widget: &ColumnWidget, children: &mut Vec<Element>, col_x: f32, col_y: f32, col_width: f32, col_height: f32) {
         if children.is_empty() {
             return;
         }
@@ -279,8 +298,6 @@ impl Element {
         let child_count = children.len() as f32;
         let gap = column_widget.get_gap();
         let total_gap = gap * (child_count - 1.0);
-        let (col_x, col_y) = column_widget.get_position();
-        let (col_width, col_height) = column_widget.get_size();
         // println!("Column positioned at x={}, y={}, w={}, h={}", col_x, col_y, col_width, col_height);
         let available_height = col_height - total_gap;
         let child_height = available_height / child_count;
@@ -310,6 +327,7 @@ impl Element {
         
         for (i, child) in children.iter_mut().enumerate() {
             // Position the child widget with proper alignment
+            // println!("position_child_element_for_alignment {:?} {:?}", col_x, current_y);
             Element::position_child_element_for_alignment(child, col_x, current_y, col_width, child_height, cross_alignment);
             
             current_y += child_height;
@@ -319,7 +337,7 @@ impl Element {
         }
     }
     
-    fn position_children_for_row_static(row_widget: &RowWidget, children: &mut Vec<Element>) {
+    fn position_children_for_row_with_coords(row_widget: &RowWidget, children: &mut Vec<Element>, row_x: f32, row_y: f32, row_width: f32, row_height: f32) {
         if children.is_empty() {
             return;
         }
@@ -327,8 +345,6 @@ impl Element {
         let child_count = children.len() as f32;
         let gap = row_widget.get_gap();
         let total_gap = gap * (child_count - 1.0);
-        let (row_x, row_y) = row_widget.get_position();
-        let (row_width, row_height) = row_widget.get_size();
         let available_width = row_width - total_gap;
         let child_width = available_width / child_count;
 
@@ -434,13 +450,18 @@ impl Element {
                         },
                         crate::widgets::layout::CrossAxisAlignment::Stretch => x,
                     };
+                    // println!("text y a {:?}", y);
                     text_widget.set_position(final_x, y);
+                    text_widget.dirty = true;
                 } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
                     button_widget.set_position(x, y);
+                    button_widget.dirty = true;
                 } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
                     box_widget.set_position(x, y);
+                    box_widget.dirty = true;
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     column_widget.set_position(x, y);
+                    column_widget.dirty = true;
                 }
             },
             Element::Container { widget, .. } => {
@@ -459,13 +480,18 @@ impl Element {
                         },
                         crate::widgets::layout::CrossAxisAlignment::Stretch => x,
                     };
+                    // println!("text y b {:?}", y);
                     text_widget.set_position(final_x, y);
+                    text_widget.dirty = true;
                 } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
                     button_widget.set_position(x, y);
+                    button_widget.dirty = true;
                 } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
                     box_widget.set_position(x, y);
+                    box_widget.dirty = true;
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     column_widget.set_position(x, y);
+                    column_widget.dirty = true;
                 }
             },
             Element::Fragment(_) => {

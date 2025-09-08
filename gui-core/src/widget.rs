@@ -1,6 +1,10 @@
 use crate::event::Event;
 use std::any::Any;
 
+pub trait WidgetUpdateContext {
+    fn mark_dirty(&self, widget_id: WidgetId);
+}
+
 pub trait Widget: Send + Sync {
     fn mount(&mut self) -> Result<(), WidgetError> {
         Ok(())
@@ -10,7 +14,7 @@ pub trait Widget: Send + Sync {
         Ok(())
     }
     
-    fn update(&mut self) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         Ok(())
     }
     

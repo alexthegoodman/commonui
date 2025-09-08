@@ -1,4 +1,4 @@
-use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion};
+use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 use crate::event::Event;
 use crate::element::Element;
 use gui_render::primitives::Rectangle;
@@ -18,7 +18,7 @@ pub struct BoxWidget {
     border_radius: f32,
     padding: Padding,
     children: Vec<Element>,
-    dirty: bool,
+    pub dirty: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -118,9 +118,11 @@ impl BoxWidget {
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
-        self.x = x;
-        self.y = y;
-        self.dirty = true;
+        if self.x != x || self.y != y {
+            self.x = x;
+            self.y = y;
+            self.dirty = true;
+        }
     }
 
     pub fn set_size(&mut self, width: f32, height: f32) {
@@ -176,9 +178,12 @@ impl Widget for BoxWidget {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        if self.dirty {
+            ctx.mark_dirty(self.id);
+        }
         for child in &mut self.children {
-            child.update()?;
+            child.update(ctx)?;
         }
         Ok(())
     }
@@ -284,9 +289,11 @@ impl StackWidget {
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
-        self.x = x;
-        self.y = y;
-        self.dirty = true;
+        if self.x != x || self.y != y {
+            self.x = x;
+            self.y = y;
+            self.dirty = true;
+        }
     }
 
     pub fn add_child(&mut self, child: Element) {
@@ -311,9 +318,12 @@ impl Widget for StackWidget {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        if self.dirty {
+            ctx.mark_dirty(self.id);
+        }
         for child in &mut self.children {
-            child.update()?;
+            child.update(ctx)?;
         }
         Ok(())
     }

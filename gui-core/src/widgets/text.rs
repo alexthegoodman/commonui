@@ -1,4 +1,4 @@
-use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion};
+use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 use crate::event::Event;
 use gui_reactive::Signal;
 use gui_render::primitives::{Text as TextPrimitive, TextRenderer};
@@ -17,7 +17,7 @@ pub struct TextWidget {
     italic: Signal<bool>,
     x: f32,
     y: f32,
-    dirty: bool,
+    pub dirty: bool,
     text_renderer: Option<TextRenderer>,
 }
 
@@ -62,9 +62,11 @@ impl TextWidget {
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
-        self.x = x;
-        self.y = y;
-        self.dirty = true;
+        if self.x != x || self.y != y {
+            self.x = x;
+            self.y = y;
+            self.dirty = true;
+        }
     }
 
     pub fn set_content(&mut self, content: String) {
@@ -106,6 +108,7 @@ impl TextWidget {
     }
 
     pub fn create_text_primitive(&self) -> TextPrimitive {
+        // println!("text prim {:?} {:?}", self.x, self.y);
         TextPrimitive::new(
             self.x,
             self.y,
@@ -130,10 +133,18 @@ impl Widget for TextWidget {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), WidgetError> {
-        // For now, we'll mark as dirty if any updates are requested
-        // In a more sophisticated implementation, we would track signal changes
-        self.dirty = true;
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        // Check if any signal values have changed
+        let current_content = self.content.get();
+        let current_color = self.color.get();
+        let current_font_size = self.font_size.get();
+        
+        // If position or content changed, mark as dirty
+        if self.dirty {
+            // println!("mark text dirty");
+            ctx.mark_dirty(self.id);
+        }
+        
         Ok(())
     }
 

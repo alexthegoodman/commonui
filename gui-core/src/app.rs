@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use std::time::{Duration, Instant};
 use winit::{
     event::{Event as WinitEvent, WindowEvent, DeviceEvent, DeviceId, ElementState},
     event_loop::EventLoop,
@@ -27,6 +28,9 @@ pub struct App {
     surface_config: Option<SurfaceConfiguration>,
     vello_renderer: Option<VelloRenderer>,
     text_renderer: Option<TextRenderer>,
+    // Update timing
+    last_full_update: Instant,
+    full_update_count: i32
 }
 
 impl App {
@@ -46,6 +50,8 @@ impl App {
             surface_config: None,
             vello_renderer: None,
             text_renderer: None,
+            last_full_update: Instant::now(),
+            full_update_count: 0,
         }
     }
 
@@ -235,14 +241,31 @@ impl App {
     }
 
     fn render_frame(&mut self) {
-        // Process any pending events
+        // Process any pending events and trigger per-element updates on interactions
+        let mut needs_immediate_update = false;
         while let Ok(event) = self.event_receiver.try_recv() {
-            self.widget_manager.handle_event(&event);
+            let result = self.widget_manager.handle_event(&event);
+            // If event was handled (interaction occurred), trigger immediate update
+            if matches!(result, crate::EventResult::Handled) {
+                needs_immediate_update = true;
+            }
         }
         
-        // Update all widgets
-        if let Err(e) = self.widget_manager.update_all() {
-            eprintln!("Widget update error: {:?}", e);
+        // Check if it's time for a full update (every 1 second)
+        // IMPLEMENTED: Run update_all on a regular interval (1 second), and have it update the dirty list with any component that gets updated
+        // This way, most updates happen in a more targeted manner, but any missed updates are assured to run every 1 second
+        let now = Instant::now();
+        let should_full_update = now.duration_since(self.last_full_update) >= Duration::from_secs(1);
+        
+        if (should_full_update && self.full_update_count == 0) || needs_immediate_update {
+            println!("update all");
+            // Update all widgets - widgets will mark themselves as dirty when their position/state changes
+            if let Err(e) = self.widget_manager.update_all() {
+                eprintln!("Widget update error: {:?}", e);
+            }
+            
+            self.last_full_update = now;
+            self.full_update_count = self.full_update_count + 1;
         }
         
         // Render widgets to screen

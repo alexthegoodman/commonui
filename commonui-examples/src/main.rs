@@ -32,14 +32,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let container2 = container()
         .with_size(300.0, 300.0)
         .with_background_color(Color::rgba8(240, 40, 50, 255))
-        // .with_padding(Padding::all(0.0))
+        .with_padding(Padding::only(20.0, 0.0, 0.0, 0.0))
         .with_child(main_column.into_container_element());
     
     // Create the root element with some padding  
     let container = container()
         .with_size(500.0, 500.0)
         .with_background_color(Color::rgba8(40, 40, 250, 255))
-        .with_padding(Padding::all(20.0))
+        .with_padding(Padding::all(40.0))
         .with_child(container2.into_container_element());
     
     let root = container.into_container_element();

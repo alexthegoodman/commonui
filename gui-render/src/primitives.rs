@@ -83,6 +83,8 @@ impl Text {
     }
 
     pub fn draw(&self, scene: &mut Scene, text_renderer: &mut TextRenderer) {
+        // println!("draw x y {:?} {:?}", self.x, self.y);
+
         let metrics = Metrics::new(self.font_size, self.font_size * 1.2);
         let mut buffer = Buffer::new(&mut text_renderer.font_system, metrics);
         

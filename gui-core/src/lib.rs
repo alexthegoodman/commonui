@@ -6,7 +6,7 @@ pub mod app;
 pub mod event;
 pub mod widgets;
 
-pub use widget::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion};
+pub use widget::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 pub use element::Element;
 pub use widget_manager::WidgetManager;
 pub use widget_state::{WidgetStateManager, StateHandle, ComputedHandle, EffectHandle, StatefulWidget, WidgetStateContext};

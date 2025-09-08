@@ -1,4 +1,4 @@
-use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion};
+use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 use crate::event::Event;
 use winit::event::ElementState;
 use gui_reactive::Signal;
@@ -32,7 +32,7 @@ pub struct ButtonWidget {
     disabled_color: Color,
     border_radius: f32,
     on_click: Option<Box<dyn Fn() + Send + Sync>>,
-    dirty: bool,
+    pub dirty: bool,
 }
 
 impl ButtonWidget {
@@ -85,9 +85,11 @@ impl ButtonWidget {
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
-        self.x = x;
-        self.y = y;
-        self.dirty = true;
+        if self.x != x || self.y != y {
+            self.x = x;
+            self.y = y;
+            self.dirty = true;
+        }
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {
@@ -147,7 +149,10 @@ impl Widget for ButtonWidget {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        if self.dirty {
+            ctx.mark_dirty(self.id);
+        }
         Ok(())
     }
 
@@ -329,9 +334,11 @@ impl InputWidget {
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
-        self.x = x;
-        self.y = y;
-        self.dirty = true;
+        if self.x != x || self.y != y {
+            self.x = x;
+            self.y = y;
+            self.dirty = true;
+        }
     }
 
     pub fn set_focus(&mut self, focused: bool) {
@@ -407,7 +414,10 @@ impl Widget for InputWidget {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        if self.dirty {
+            ctx.mark_dirty(self.id);
+        }
         Ok(())
     }
 
@@ -557,9 +567,11 @@ impl SliderWidget {
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
-        self.x = x;
-        self.y = y;
-        self.dirty = true;
+        if self.x != x || self.y != y {
+            self.x = x;
+            self.y = y;
+            self.dirty = true;
+        }
     }
 
     pub fn set_value(&mut self, value: f32) {
@@ -646,7 +658,10 @@ impl Widget for SliderWidget {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), WidgetError> {
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        if self.dirty {
+            ctx.mark_dirty(self.id);
+        }
         Ok(())
     }
 

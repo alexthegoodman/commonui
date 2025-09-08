@@ -1,4 +1,4 @@
-use crate::{Element, Widget, WidgetId, WidgetError, EventResult};
+use crate::{Element, Widget, WidgetId, WidgetError, EventResult, WidgetUpdateContext};
 use crate::event::Event;
 use std::collections::HashMap;
 use gui_reactive::Signal;
@@ -8,6 +8,10 @@ pub struct WidgetManager {
     mounted_widgets: HashMap<WidgetId, bool>,
     widget_registry: HashMap<WidgetId, String>,
     dirty_widgets: Signal<Vec<WidgetId>>,
+}
+
+struct WidgetManagerUpdateContext<'a> {
+    dirty_widgets: &'a Signal<Vec<WidgetId>>,
 }
 
 impl WidgetManager {
@@ -95,8 +99,12 @@ impl WidgetManager {
     }
     
     pub fn update_all(&mut self) -> Result<(), WidgetError> {
-        if let Some(ref mut root) = self.root {
-            root.update()
+        if self.root.is_some() {
+            // Create a temporary context that implements WidgetUpdateContext
+            let context = WidgetManagerUpdateContext {
+                dirty_widgets: &self.dirty_widgets,
+            };
+            self.root.as_mut().unwrap().update(&context)
         } else {
             Ok(())
         }
@@ -151,6 +159,22 @@ impl WidgetManager {
     }
 }
 
+impl<'a> WidgetUpdateContext for WidgetManagerUpdateContext<'a> {
+    fn mark_dirty(&self, widget_id: WidgetId) {
+        let mut dirty_list = self.dirty_widgets.get();
+        if !dirty_list.contains(&widget_id) {
+            dirty_list.push(widget_id);
+            self.dirty_widgets.set(dirty_list);
+        }
+    }
+}
+
+impl WidgetUpdateContext for WidgetManager {
+    fn mark_dirty(&self, widget_id: WidgetId) {
+        self.mark_widget_dirty(widget_id);
+    }
+}
+
 impl Default for WidgetManager {
     fn default() -> Self {
         Self::new()
@@ -182,6 +206,10 @@ mod tests {
         
         fn unmount(&mut self) -> Result<(), WidgetError> {
             self.mounted = false;
+            Ok(())
+        }
+        
+        fn update(&mut self, _ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
             Ok(())
         }
         

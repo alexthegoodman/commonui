@@ -1,4 +1,4 @@
-use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion};
+use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 use crate::event::Event;
 use crate::element::Element;
 use std::any::Any;
@@ -34,7 +34,7 @@ pub struct RowWidget {
     cross_axis_alignment: CrossAxisAlignment,
     gap: f32,
     children: Vec<Element>,
-    dirty: bool,
+    pub dirty: bool,
 }
 
 impl RowWidget {
@@ -98,9 +98,11 @@ impl RowWidget {
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
-        self.x = x;
-        self.y = y;
-        self.dirty = true;
+        if self.x != x || self.y != y {
+            self.x = x;
+            self.y = y;
+            self.dirty = true;
+        }
     }
 
     pub fn add_child(&mut self, child: Element) {
@@ -217,11 +219,16 @@ impl Widget for RowWidget {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), WidgetError> {
-        for child in &mut self.children {
-            child.update()?;
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        if self.dirty {
+            ctx.mark_dirty(self.id);
         }
         self.layout_children();
+
+        for child in &mut self.children {
+            child.update(ctx)?;
+        }
+        
         Ok(())
     }
 
@@ -293,7 +300,7 @@ pub struct ColumnWidget {
     cross_axis_alignment: CrossAxisAlignment,
     gap: f32,
     children: Vec<Element>,
-    dirty: bool,
+    pub dirty: bool,
 }
 
 impl ColumnWidget {
@@ -357,9 +364,11 @@ impl ColumnWidget {
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
-        self.x = x;
-        self.y = y;
-        self.dirty = true;
+        if self.x != x || self.y != y {
+            self.x = x;
+            self.y = y;
+            self.dirty = true;
+        }
     }
 
     pub fn add_child(&mut self, child: Element) {
@@ -475,11 +484,15 @@ impl Widget for ColumnWidget {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), WidgetError> {
-        for child in &mut self.children {
-            child.update()?;
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        if self.dirty {
+            ctx.mark_dirty(self.id);
         }
         self.layout_children();
+        for child in &mut self.children {
+            child.update(ctx)?;
+        }
+        
         Ok(())
     }
 
@@ -596,9 +609,11 @@ impl GridWidget {
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
-        self.x = x;
-        self.y = y;
-        self.dirty = true;
+        if self.x != x || self.y != y {
+            self.x = x;
+            self.y = y;
+            self.dirty = true;
+        }
     }
 
     pub fn add_child(&mut self, child: Element) {
@@ -646,11 +661,16 @@ impl Widget for GridWidget {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), WidgetError> {
-        for child in &mut self.children {
-            child.update()?;
+    fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        if self.dirty {
+            ctx.mark_dirty(self.id);
         }
         self.layout_children();
+        
+        for child in &mut self.children {
+            child.update(ctx)?;
+        }
+        
         Ok(())
     }
 
