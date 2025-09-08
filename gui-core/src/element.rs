@@ -2,7 +2,7 @@ use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, WidgetUpdate
 use crate::event::Event;
 use crate::widgets::text::TextWidget;
 use crate::widgets::container::BoxWidget;
-use crate::widgets::interactive::ButtonWidget;
+use crate::widgets::interactive::{ButtonWidget, InputWidget, SliderWidget};
 use crate::widgets::layout::{ColumnWidget, RowWidget};
 
 use vello::Scene;
@@ -252,6 +252,29 @@ impl Element {
             if let Some(text_primitive) = button_widget.create_text_primitive() {
                 text_primitive.draw(scene, text_renderer);
             }
+        } else if let Some(input_widget) = widget.as_any().downcast_ref::<InputWidget>() {
+            // Render shadow first if it exists
+            if let Some(shadow) = input_widget.create_shadow() {
+                shadow.draw(scene);
+            }
+            // Render background rectangle
+            let background_rect = input_widget.create_background_rectangle();
+            background_rect.draw(scene);
+            // Render text (either current text or placeholder)
+            if let Some(text_primitive) = input_widget.create_text_primitive() {
+                text_primitive.draw(scene, text_renderer);
+            }
+        } else if let Some(slider_widget) = widget.as_any().downcast_ref::<SliderWidget>() {
+            // Render shadow first if it exists
+            if let Some(shadow) = slider_widget.create_shadow() {
+                shadow.draw(scene);
+            }
+            // Render track
+            let track_rect = slider_widget.create_track_rectangle();
+            track_rect.draw(scene);
+            // Render fill
+            let fill_rect = slider_widget.create_fill_rectangle();
+            fill_rect.draw(scene);
         }
         
         Ok(render_data)
@@ -393,7 +416,7 @@ impl Element {
         // println!("Positioning child at x={}, y={}", x, y);
         match child {
             Element::Widget(widget) => {
-                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget, layout::ColumnWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     // println!("  Positioning text widget at x={}, y={}", x, y);
@@ -407,10 +430,14 @@ impl Element {
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     // println!("  Positioning column widget at x={}, y={}", x, y);
                     column_widget.set_position(x, y);
+                } else if let Some(input_widget) = widget.as_any_mut().downcast_mut::<InputWidget>() {
+                    input_widget.set_position(x, y);
+                } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
+                    slider_widget.set_position(x, y);
                 }
             },
             Element::Container { widget, .. } => {
-                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget, layout::ColumnWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     // println!("  Positioning text widget (container) at x={}, y={}", x, y);
@@ -435,7 +462,7 @@ impl Element {
     fn position_child_element_for_alignment(child: &mut Element, x: f32, y: f32, container_width: f32, _height: f32, cross_alignment: crate::widgets::layout::CrossAxisAlignment) {
         match child {
             Element::Widget(widget) => {
-                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget, layout::ColumnWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     let final_x = match cross_alignment {
@@ -462,10 +489,14 @@ impl Element {
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     column_widget.set_position(x, y);
                     column_widget.dirty = true;
+                } else if let Some(input_widget) = widget.as_any_mut().downcast_mut::<InputWidget>() {
+                    input_widget.set_position(x, y);
+                } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
+                    slider_widget.set_position(x, y);
                 }
             },
             Element::Container { widget, .. } => {
-                use crate::widgets::{text::TextWidget, interactive::ButtonWidget, container::BoxWidget, layout::ColumnWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     let final_x = match cross_alignment {
@@ -492,6 +523,10 @@ impl Element {
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     column_widget.set_position(x, y);
                     column_widget.dirty = true;
+                } else if let Some(input_widget) = widget.as_any_mut().downcast_mut::<InputWidget>() {
+                    input_widget.set_position(x, y);
+                } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
+                    slider_widget.set_position(x, y);
                 }
             },
             Element::Fragment(_) => {

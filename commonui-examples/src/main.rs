@@ -40,6 +40,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_color(Color::rgba8(100, 100, 100, 255))
         .with_shadow(1.0, 1.0, 2.0, Color::rgba8(0, 0, 0, 80));
     
+    // Create a text input for message editing
+    let message_for_input = message_signal.clone();
+    let text_input = input()
+        .with_size(250.0, 32.0)
+        .with_placeholder("Enter your message...")
+        .with_shadow(2.0, 2.0, 4.0, Color::rgba8(0, 0, 0, 100))
+        .on_change(move |text| {
+            message_for_input.set(text.to_string());
+        });
+
+    // Create a number input for the counter
+    let counter_for_input = counter_signal.clone();
+    let subtitle_for_input = subtitle_signal.clone();
+    let number_input = input()
+        .with_size(120.0, 32.0)
+        .with_placeholder("Counter value...")
+        .with_shadow(2.0, 2.0, 4.0, Color::rgba8(0, 0, 0, 100))
+        .on_submit(move |text| {
+            if let Ok(value) = text.parse::<i32>() {
+                counter_for_input.set(value);
+                subtitle_for_input.set(format!("Clicked {} times", value));
+            }
+        });
+
+    // Create a slider for controlling the counter
+    let counter_for_slider = counter_signal.clone();
+    let subtitle_for_slider = subtitle_signal.clone();
+    let counter_slider = slider(0.0, 20.0)
+        .with_size(200.0, 24.0)
+        .with_value(counter_signal.get() as f32)
+        .on_change(move |value| {
+            let int_value = value as i32;
+            counter_for_slider.set(int_value);
+            subtitle_for_slider.set(format!("Clicked {} times", int_value));
+        });
+    
     // Create a button with shadow that will update the counter signal when clicked
     let counter_for_button = counter_signal.clone();
     let message_for_button = message_signal.clone();
@@ -70,17 +106,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create a column layout to arrange elements vertically
     let main_column = column()
-        .with_size(300.0, 100.0)
+        .with_size(300.0, 240.0) // Increased height to accommodate new widgets
         .with_main_axis_alignment(MainAxisAlignment::Center)
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
         // .with_gap(10.0)
         .with_child(Element::new_widget(Box::new(hello_text)))
         .with_child(Element::new_widget(Box::new(subtitle_text)))
+        .with_child(Element::new_widget(Box::new(text_input)))
+        .with_child(Element::new_widget(Box::new(number_input)))
+        .with_child(Element::new_widget(Box::new(counter_slider)))
         .with_child(Element::new_widget(Box::new(click_button)));
 
         // Create the inner container with responsive shadow
     let container2 = container()
-        .with_size(300.0, 300.0)
+        .with_size(300.0, 380.0) // Increased height to accommodate new widgets
         .with_background_color(Color::rgba8(200, 200, 200, 255))
         .with_padding(Padding::only(20.0, 0.0, 0.0, 0.0))
         .with_shadow(15.0, 15.0, 30.0, Color::rgba8(0, 0, 0, 150))
@@ -107,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create the root element with responsive styling
     let container = container()
-        .with_size(500.0, 500.0)
+        .with_size(500.0, 580.0) // Increased height to accommodate new widgets
         .with_background_color(Color::rgba8(240, 240, 240, 255))
         .with_padding(Padding::all(40.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))

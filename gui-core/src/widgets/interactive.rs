@@ -413,6 +413,21 @@ impl InputWidget {
         }
     }
 
+    pub fn delete_char_forward(&mut self) {
+        let current_text = self.text.get();
+        if self.cursor_position < current_text.len() {
+            let mut new_text = current_text;
+            new_text.remove(self.cursor_position);
+            self.text.set(new_text.clone());
+            
+            if let Some(ref callback) = self.on_change {
+                callback(&new_text);
+            }
+            
+            self.dirty = true;
+        }
+    }
+
     pub fn get_border_color(&self) -> Color {
         if self.is_focused {
             self.focused_border_color
@@ -432,6 +447,35 @@ impl InputWidget {
             Shadow::new(self.x, self.y, self.width, self.height, 
                        shadow.offset_x, shadow.offset_y, shadow.blur_radius, shadow.color)
         })
+    }
+
+    pub fn create_text_primitive(&self) -> Option<gui_render::primitives::Text> {
+        let current_text = self.text.get();
+        let display_text = if current_text.is_empty() {
+            &self.placeholder
+        } else {
+            &current_text
+        };
+        
+        if !display_text.is_empty() {
+            // Position text with some padding from the left edge
+            let text_size = 14.0; // Default font size for input fields
+            let padding = 8.0;
+            let text_x = self.x + padding;
+            // Better vertical centering: baseline position is roughly 3/4 down from the top of the text height
+            let text_y = self.y + (self.height / 2.0) + (text_size * 0.25);
+            
+            // Use different colors for actual text vs placeholder
+            let text_color = if current_text.is_empty() {
+                self.placeholder_color
+            } else {
+                self.text_color
+            };
+            
+            Some(Text::new(text_x, text_y, display_text.clone(), text_color, text_size))
+        } else {
+            None
+        }
     }
 }
 
@@ -470,22 +514,59 @@ impl Widget for InputWidget {
                 }
             },
             Event::Keyboard(keyboard_event) if keyboard_event.state == ElementState::Pressed && self.is_focused => {
-                // For now, we'll handle basic keyboard events using scancode
-                // In a real implementation, we'd convert scancodes to characters
-                match keyboard_event.scancode {
-                    14 => { // Backspace
-                        self.delete_char();
-                        EventResult::Handled
-                    },
-                    28 => { // Enter
-                        if let Some(ref callback) = self.on_submit {
-                            callback(&self.text.get());
+                if let Some(key_code) = keyboard_event.key_code {
+                    use winit::keyboard::KeyCode;
+                    match key_code {
+                        KeyCode::Backspace => {
+                            self.delete_char();
+                            EventResult::Handled
+                        },
+                        KeyCode::Enter => {
+                            if let Some(ref callback) = self.on_submit {
+                                callback(&self.text.get());
+                            }
+                            EventResult::Handled
+                        },
+                        KeyCode::Delete => {
+                            self.delete_char_forward();
+                            EventResult::Handled
+                        },
+                        KeyCode::ArrowLeft => {
+                            if self.cursor_position > 0 {
+                                self.cursor_position -= 1;
+                                self.dirty = true;
+                            }
+                            EventResult::Handled
+                        },
+                        KeyCode::ArrowRight => {
+                            if self.cursor_position < self.text.get().len() {
+                                self.cursor_position += 1;
+                                self.dirty = true;
+                            }
+                            EventResult::Handled
+                        },
+                        KeyCode::Home => {
+                            self.cursor_position = 0;
+                            self.dirty = true;
+                            EventResult::Handled
+                        },
+                        KeyCode::End => {
+                            self.cursor_position = self.text.get().len();
+                            self.dirty = true;
+                            EventResult::Handled
+                        },
+                        // Handle character input
+                        key_code => {
+                            if let Some(char) = keycode_to_char(key_code, keyboard_event.modifiers.shift_key()) {
+                                self.insert_char(char);
+                                EventResult::Handled
+                            } else {
+                                EventResult::Ignored
+                            }
                         }
-                        EventResult::Handled
-                    },
-                    // For simplicity, we'll skip character input for now
-                    // In a real implementation, we'd have proper keyboard handling
-                    _ => EventResult::Ignored,
+                    }
+                } else {
+                    EventResult::Ignored
                 }
             },
             _ => EventResult::Ignored,
@@ -791,4 +872,68 @@ pub fn input() -> InputWidget {
 
 pub fn slider(min: f32, max: f32) -> SliderWidget {
     SliderWidget::new(min, max)
+}
+
+/// Convert a KeyCode to a character, considering shift state
+fn keycode_to_char(key_code: winit::keyboard::KeyCode, shift: bool) -> Option<char> {
+    use winit::keyboard::KeyCode;
+    
+    match key_code {
+        // Letters
+        KeyCode::KeyA => Some(if shift { 'A' } else { 'a' }),
+        KeyCode::KeyB => Some(if shift { 'B' } else { 'b' }),
+        KeyCode::KeyC => Some(if shift { 'C' } else { 'c' }),
+        KeyCode::KeyD => Some(if shift { 'D' } else { 'd' }),
+        KeyCode::KeyE => Some(if shift { 'E' } else { 'e' }),
+        KeyCode::KeyF => Some(if shift { 'F' } else { 'f' }),
+        KeyCode::KeyG => Some(if shift { 'G' } else { 'g' }),
+        KeyCode::KeyH => Some(if shift { 'H' } else { 'h' }),
+        KeyCode::KeyI => Some(if shift { 'I' } else { 'i' }),
+        KeyCode::KeyJ => Some(if shift { 'J' } else { 'j' }),
+        KeyCode::KeyK => Some(if shift { 'K' } else { 'k' }),
+        KeyCode::KeyL => Some(if shift { 'L' } else { 'l' }),
+        KeyCode::KeyM => Some(if shift { 'M' } else { 'm' }),
+        KeyCode::KeyN => Some(if shift { 'N' } else { 'n' }),
+        KeyCode::KeyO => Some(if shift { 'O' } else { 'o' }),
+        KeyCode::KeyP => Some(if shift { 'P' } else { 'p' }),
+        KeyCode::KeyQ => Some(if shift { 'Q' } else { 'q' }),
+        KeyCode::KeyR => Some(if shift { 'R' } else { 'r' }),
+        KeyCode::KeyS => Some(if shift { 'S' } else { 's' }),
+        KeyCode::KeyT => Some(if shift { 'T' } else { 't' }),
+        KeyCode::KeyU => Some(if shift { 'U' } else { 'u' }),
+        KeyCode::KeyV => Some(if shift { 'V' } else { 'v' }),
+        KeyCode::KeyW => Some(if shift { 'W' } else { 'w' }),
+        KeyCode::KeyX => Some(if shift { 'X' } else { 'x' }),
+        KeyCode::KeyY => Some(if shift { 'Y' } else { 'y' }),
+        KeyCode::KeyZ => Some(if shift { 'Z' } else { 'z' }),
+        
+        // Numbers
+        KeyCode::Digit0 => Some(if shift { ')' } else { '0' }),
+        KeyCode::Digit1 => Some(if shift { '!' } else { '1' }),
+        KeyCode::Digit2 => Some(if shift { '@' } else { '2' }),
+        KeyCode::Digit3 => Some(if shift { '#' } else { '3' }),
+        KeyCode::Digit4 => Some(if shift { '$' } else { '4' }),
+        KeyCode::Digit5 => Some(if shift { '%' } else { '5' }),
+        KeyCode::Digit6 => Some(if shift { '^' } else { '6' }),
+        KeyCode::Digit7 => Some(if shift { '&' } else { '7' }),
+        KeyCode::Digit8 => Some(if shift { '*' } else { '8' }),
+        KeyCode::Digit9 => Some(if shift { '(' } else { '9' }),
+        
+        // Special characters
+        KeyCode::Space => Some(' '),
+        KeyCode::Minus => Some(if shift { '_' } else { '-' }),
+        KeyCode::Equal => Some(if shift { '+' } else { '=' }),
+        KeyCode::BracketLeft => Some(if shift { '{' } else { '[' }),
+        KeyCode::BracketRight => Some(if shift { '}' } else { ']' }),
+        KeyCode::Backslash => Some(if shift { '|' } else { '\\' }),
+        KeyCode::Semicolon => Some(if shift { ':' } else { ';' }),
+        KeyCode::Quote => Some(if shift { '"' } else { '\'' }),
+        KeyCode::Comma => Some(if shift { '<' } else { ',' }),
+        KeyCode::Period => Some(if shift { '>' } else { '.' }),
+        KeyCode::Slash => Some(if shift { '?' } else { '/' }),
+        KeyCode::Backquote => Some(if shift { '~' } else { '`' }),
+        
+        // Non-printable characters
+        _ => None,
+    }
 }
