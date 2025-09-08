@@ -39,6 +39,8 @@ pub struct App {
     last_full_update: Instant,
     full_update_count: i32,
     last_mouse_position: [f64; 2],
+    title: String,
+    inner_size: [i32; 2],
 }
 
 impl App {
@@ -60,12 +62,24 @@ impl App {
             text_renderer: None,
             last_full_update: Instant::now(),
             full_update_count: 0,
-            last_mouse_position: [0.0, 0.0]
+            last_mouse_position: [0.0, 0.0],
+            title: "CommonUI".to_string(),
+            inner_size: [800, 600]
         }
     }
 
     pub fn with_root(mut self, root: Element) -> Result<Self, Box<dyn std::error::Error>> {
         self.widget_manager.set_root(root)?;
+        Ok(self)
+    }
+
+    pub fn with_title(mut self, title: String) -> Result<Self, Box<dyn std::error::Error>> {
+        self.title = title;
+        Ok(self)
+    }
+
+    pub fn with_inner_size(mut self, inner_size: [i32; 2]) -> Result<Self, Box<dyn std::error::Error>> {
+        self.inner_size = inner_size;
         Ok(self)
     }
 
@@ -80,8 +94,8 @@ impl App {
                 WinitEvent::Resumed => {
                     if self.window.is_none() {
                         let window = WindowBuilder::new()
-                            .with_title("CommonUI Application")
-                            .with_inner_size(winit::dpi::LogicalSize::new(800, 600))
+                            .with_title(self.title.clone())
+                            .with_inner_size(winit::dpi::LogicalSize::new(self.inner_size[0], self.inner_size[1]))
                             .build(event_loop_window_target)
                             .unwrap();
                         self.window = Some(Arc::new(window));

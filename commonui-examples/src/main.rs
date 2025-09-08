@@ -179,6 +179,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = container.into_container_element();
     
     // Start the application with the UI tree
-    let app = App::new().with_root(root)?;
+    let app = App::new().with_title("CommonUI Example".to_string())?.with_inner_size([1200, 800])?.with_root(root)?;
     app.run()
 }
