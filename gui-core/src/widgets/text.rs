@@ -4,6 +4,7 @@ use gui_reactive::Signal;
 use gui_render::primitives::{Text as TextPrimitive, TextRenderer};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
 use vello::peniko::Color;
 
 static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -19,6 +20,8 @@ pub struct TextWidget {
     y: f32,
     pub dirty: bool,
     text_renderer: Option<TextRenderer>,
+    // Shared dirty flag that reactive signals can set
+    reactive_dirty: Arc<RwLock<bool>>,
 }
 
 impl TextWidget {
@@ -34,6 +37,7 @@ impl TextWidget {
             y: 0.0,
             dirty: true,
             text_renderer: None,
+            reactive_dirty: Arc::new(RwLock::new(false)),
         }
     }
 
@@ -125,6 +129,29 @@ impl Widget for TextWidget {
     fn mount(&mut self) -> Result<(), WidgetError> {
         self.text_renderer = Some(TextRenderer::new());
         self.dirty = true;
+        
+        // Setup reactive bindings
+        let reactive_dirty = self.reactive_dirty.clone();
+        self.content.subscribe_fn(move |_| {
+            if let Ok(mut dirty) = reactive_dirty.write() {
+                *dirty = true;
+            }
+        });
+
+        let reactive_dirty = self.reactive_dirty.clone();
+        self.color.subscribe_fn(move |_| {
+            if let Ok(mut dirty) = reactive_dirty.write() {
+                *dirty = true;
+            }
+        });
+
+        let reactive_dirty = self.reactive_dirty.clone();
+        self.font_size.subscribe_fn(move |_| {
+            if let Ok(mut dirty) = reactive_dirty.write() {
+                *dirty = true;
+            }
+        });
+
         Ok(())
     }
 
@@ -134,15 +161,21 @@ impl Widget for TextWidget {
     }
 
     fn update(&mut self, ctx: &dyn WidgetUpdateContext) -> Result<(), WidgetError> {
-        // Check if any signal values have changed
-        let current_content = self.content.get();
-        let current_color = self.color.get();
-        let current_font_size = self.font_size.get();
+        // Check if reactive signals have changed
+        let mut reactive_changed = false;
+        if let Ok(mut reactive_dirty) = self.reactive_dirty.write() {
+            if *reactive_dirty {
+                reactive_changed = true;
+                *reactive_dirty = false;
+                self.dirty = true;
+            }
+        }
         
         // If position or content changed, mark as dirty
         if self.dirty {
-            // println!("mark text dirty");
             ctx.mark_dirty(self.id);
+            // Reset dirty flag after marking
+            self.dirty = false;
         }
         
         Ok(())
@@ -158,7 +191,12 @@ impl Widget for TextWidget {
     }
 
     fn needs_render(&self) -> bool {
-        self.dirty
+        let reactive_dirty = if let Ok(dirty) = self.reactive_dirty.read() {
+            *dirty
+        } else {
+            false
+        };
+        self.dirty || reactive_dirty
     }
 
     fn render(&self) -> Result<RenderData, WidgetError> {
@@ -243,6 +281,22 @@ pub fn text(content: impl Into<String>) -> TextWidget {
 
 pub fn text_with_style(content: impl Into<String>, style: TextStyle) -> TextWidget {
     TextWidget::new(content.into())
+        .with_color(style.color)
+        .with_font_size(style.font_size)
+        .with_font_weight(style.font_weight)
+        .with_italic(style.italic)
+}
+
+pub fn text_signal(content_signal: Signal<String>) -> TextWidget {
+    let mut widget = TextWidget::new(content_signal.get());
+    widget.content = content_signal;
+    widget
+}
+
+pub fn text_signal_with_style(content_signal: Signal<String>, style: TextStyle) -> TextWidget {
+    let mut widget = TextWidget::new(content_signal.get());
+    widget.content = content_signal;
+    widget
         .with_color(style.color)
         .with_font_size(style.font_size)
         .with_font_weight(style.font_weight)

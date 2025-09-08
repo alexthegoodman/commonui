@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock, Weak};
+use std::sync::{Arc, RwLock};
 use tokio::sync::broadcast;
 
 pub type SignalId = usize;
@@ -7,7 +7,7 @@ pub struct Signal<T> {
     id: SignalId,
     value: Arc<RwLock<T>>,
     sender: broadcast::Sender<T>,
-    subscribers: Arc<RwLock<Vec<Weak<dyn Fn(&T) + Send + Sync>>>>,
+    subscribers: Arc<RwLock<Vec<Arc<dyn Fn(&T) + Send + Sync>>>>,
 }
 
 impl<T> Signal<T> 
@@ -77,10 +77,9 @@ where
         F: Fn(&T) + Send + Sync + 'static,
     {
         let callback_arc = Arc::new(callback);
-        let weak_ref = Arc::downgrade(&(callback_arc.clone() as Arc<dyn Fn(&T) + Send + Sync>));
         
         if let Ok(mut subscribers) = self.subscribers.write() {
-            subscribers.push(weak_ref);
+            subscribers.push(callback_arc.clone());
         }
         
         // Call immediately with current value
@@ -89,16 +88,10 @@ where
     }
 
     fn notify_subscribers(&self, value: &T) {
-        if let Ok(mut subscribers) = self.subscribers.write() {
-            // Clean up dead weak references and call live ones
-            subscribers.retain(|weak_callback| {
-                if let Some(callback) = weak_callback.upgrade() {
-                    callback(value);
-                    true
-                } else {
-                    false
-                }
-            });
+        if let Ok(subscribers) = self.subscribers.read() {
+            for callback in subscribers.iter() {
+                callback(value);
+            }
         }
     }
 }

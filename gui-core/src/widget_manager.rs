@@ -1,13 +1,16 @@
 use crate::{Element, Widget, WidgetId, WidgetError, EventResult, WidgetUpdateContext};
 use crate::event::Event;
 use std::collections::HashMap;
-use gui_reactive::Signal;
+use gui_reactive::{Signal, ReactiveWidgetRegistry};
+use gui_reactive::widget_registry::WidgetDirtyNotifier;
+use std::sync::{Arc, Weak};
 
 pub struct WidgetManager {
     root: Option<Element>,
     mounted_widgets: HashMap<WidgetId, bool>,
     widget_registry: HashMap<WidgetId, String>,
     dirty_widgets: Signal<Vec<WidgetId>>,
+    reactive_registry: ReactiveWidgetRegistry,
 }
 
 struct WidgetManagerUpdateContext<'a> {
@@ -21,7 +24,12 @@ impl WidgetManager {
             mounted_widgets: HashMap::new(),
             widget_registry: HashMap::new(),
             dirty_widgets: Signal::new(Vec::new()),
+            reactive_registry: ReactiveWidgetRegistry::new(),
         }
+    }
+
+    pub fn new_arc() -> Arc<Self> {
+        Arc::new(Self::new())
     }
     
     pub fn set_root(&mut self, mut element: Element) -> Result<(), WidgetError> {
@@ -74,6 +82,7 @@ impl WidgetManager {
                     widget.unmount()?;
                     self.mounted_widgets.insert(widget_id, false);
                     self.widget_registry.remove(&widget_id);
+                    self.reactive_registry.unregister_widget(widget_id);
                 }
                 Ok(())
             },
@@ -86,6 +95,7 @@ impl WidgetManager {
                     widget.unmount()?;
                     self.mounted_widgets.insert(widget_id, false);
                     self.widget_registry.remove(&widget_id);
+                    self.reactive_registry.unregister_widget(widget_id);
                 }
                 Ok(())
             },
@@ -157,6 +167,10 @@ impl WidgetManager {
     pub fn root(&self) -> Option<&Element> {
         self.root.as_ref()
     }
+
+    pub fn get_reactive_registry(&self) -> &ReactiveWidgetRegistry {
+        &self.reactive_registry
+    }
 }
 
 impl<'a> WidgetUpdateContext for WidgetManagerUpdateContext<'a> {
@@ -172,6 +186,16 @@ impl<'a> WidgetUpdateContext for WidgetManagerUpdateContext<'a> {
 impl WidgetUpdateContext for WidgetManager {
     fn mark_dirty(&self, widget_id: WidgetId) {
         self.mark_widget_dirty(widget_id);
+    }
+}
+
+impl WidgetDirtyNotifier for WidgetManager {
+    fn mark_widget_dirty(&self, widget_id: WidgetId) {
+        let mut dirty_list = self.dirty_widgets.get();
+        if !dirty_list.contains(&widget_id) {
+            dirty_list.push(widget_id);
+            self.dirty_widgets.set(dirty_list);
+        }
     }
 }
 

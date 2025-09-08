@@ -1,6 +1,7 @@
 use gui_core::{App, Element};
 use gui_core::widgets::*;
 use gui_core::widgets::container::Padding;
+use gui_core::widgets::text::text_signal;
 use gui_reactive::Signal;
 use vello::peniko::Color;
 
@@ -12,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let message_signal = Signal::new("Hello, CommonUI World!".to_string());
     
     // Demonstrate signal reactivity with subscriptions
+    // TODO: these subscribe_fn don't work
     counter_signal.subscribe_fn(move |count| {
         println!("Counter updated to: {}", count);
         if *count == 5 {
@@ -24,32 +26,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     
     // Create text that reacts to the message signal
-    let hello_text = text(&message_signal.get())
+    let hello_text = text_signal(message_signal.clone())
         .with_font_size(24.0)
         .with_color(Color::rgba8(250, 250, 200, 255));
     
+    // Create a reactive computed signal for the subtitle
+    let subtitle_signal = Signal::new(format!("Clicked {} times", counter_signal.get()));
+    
     // Create reactive subtitle that shows counter
-    let subtitle_text = text(&format!("Clicked {} times", counter_signal.get()))
+    let subtitle_text = text_signal(subtitle_signal.clone())
         .with_font_size(16.0)
         .with_color(Color::rgba8(100, 100, 100, 255));
     
     // Create a button that will update the counter signal when clicked
     let counter_for_button = counter_signal.clone();
     let message_for_button = message_signal.clone();
+    let subtitle_for_button = subtitle_signal.clone();
     let click_button = button("Click Me!")
         .with_size(120.0, 40.0)
         .on_click(move || {
             let current_count = counter_for_button.get();
-            counter_for_button.set(current_count + 1);
+            let new_count = current_count + 1;
+            counter_for_button.set(new_count);
+            
+            // Update the subtitle signal
+            subtitle_for_button.set(format!("Clicked {} times", new_count));
             
             // Update message after a few clicks
-            if current_count + 1 == 1 {
+            if new_count == 1 {
                 println!("click!");
                 message_for_button.set("Great! You clicked the button!".to_string());
-            } else if current_count + 1 == 3 {
+            } else if new_count == 3 {
                 println!("click again!");
                 message_for_button.set("Keep going!".to_string());
-            } else if current_count + 1 >= 10 {
+            } else if new_count >= 10 {
                 println!("click champ!");
                 message_for_button.set("Wow! You're a clicking champion!".to_string());
             }

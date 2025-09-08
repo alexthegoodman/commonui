@@ -6,6 +6,7 @@ pub mod frame_sync;
 pub mod threading;
 pub mod runtime;
 pub mod shutdown;
+pub mod widget_registry;
 
 pub use signal::Signal;
 pub use computed::Computed;
@@ -30,3 +31,4 @@ pub use shutdown::{
     initiate_graceful_shutdown, register_shutdown_thread, unregister_shutdown_thread,
     is_shutting_down, watch_shutdown_progress
 };
+pub use widget_registry::ReactiveWidgetRegistry;
