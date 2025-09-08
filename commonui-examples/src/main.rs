@@ -13,7 +13,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let message_signal = Signal::new("Hello, CommonUI World!".to_string());
     
     // Demonstrate signal reactivity with subscriptions
-    // TODO: these subscribe_fn don't work
     counter_signal.subscribe_fn(move |count| {
         println!("Counter updated to: {}", count);
         if *count == 5 {
