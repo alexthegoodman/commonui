@@ -6,6 +6,8 @@ use gui_core::{MediaQuery, mobile, desktop, tablet};
 use gui_reactive::Signal;
 use vello::peniko::Color;
 
+// Commented code is retained for reference
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting CommonUI Hello World Example with Signals...");
     
