@@ -15,22 +15,22 @@ mod advanced_canvas_example;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Check if we should run the canvas examples
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() > 1 {
-        match args[1].as_str() {
-            // "canvas" => {
-            //     println!("Starting Canvas Widget Example...");
-            //     let canvas_app = canvas_example::create_canvas_app()?;
-            //     return canvas_app.run();
-            // }
-            "advanced-canvas" => {
-                println!("Starting Advanced Canvas Example (Vello + Custom Rendering)...");
-                let advanced_app = advanced_canvas_example::create_advanced_canvas_app()?;
-                return advanced_app.run();
-            }
-            _ => {}
-        }
-    }
+    // let args: Vec<String> = std::env::args().collect();
+    // if args.len() > 1 {
+    //     match args[1].as_str() {
+    //         // "canvas" => {
+    //         //     println!("Starting Canvas Widget Example...");
+    //         //     let canvas_app = canvas_example::create_canvas_app()?;
+    //         //     return canvas_app.run();
+    //         // }
+    //         "advanced-canvas" => {
+    //             println!("Starting Advanced Canvas Example (Vello + Custom Rendering)...");
+    //             let advanced_app = advanced_canvas_example::create_advanced_canvas_app()?;
+    //             return advanced_app.run();
+    //         }
+    //         _ => {}
+    //     }
+    // }
 
     println!("Starting CommonUI Hello World Example with Canvas and Signals...");
     
@@ -170,39 +170,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .with_child(main_column.into_container_element());
 
     // Create a simple canvas that draws a blue circle and red rounded rectangle
-    let custom_canvas = canvas()
-        .with_size(400.0, 300.0)
-        // .with_position(50.0, 50.0)
-        .with_render_func(|scene: &mut Scene, _device: &Device, _queue: &Queue, x, y, width, height| {
-            // Draw a blue circle in the center
-            let circle_center = vello::kurbo::Point::new((x + width / 2.0) as f64, (y + height / 2.0) as f64);
-            let circle = Circle::new(circle_center, 50.0);
-            scene.fill(
-                vello::peniko::Fill::NonZero,
-                Affine::IDENTITY,
-                Color::BLUE,
-                None,
-                &circle,
-            );
+    // let custom_canvas = canvas()
+    //     .with_size(400.0, 300.0)
+    //     // .with_position(50.0, 50.0)
+    //     .with_render_func(|scene: &mut Scene, _device: &Device, _queue: &Queue, x, y, width, height| {
+    //         // Draw a blue circle in the center
+    //         let circle_center = vello::kurbo::Point::new((x + width / 2.0) as f64, (y + height / 2.0) as f64);
+    //         let circle = Circle::new(circle_center, 50.0);
+    //         scene.fill(
+    //             vello::peniko::Fill::NonZero,
+    //             Affine::IDENTITY,
+    //             Color::BLUE,
+    //             None,
+    //             &circle,
+    //         );
             
-            // Draw a red rounded rectangle in the top-left
-            let rect = RoundedRect::new(
-                (x + 20.0) as f64, 
-                (y + 20.0) as f64, 
-                (x + 120.0) as f64, 
-                (y + 80.0) as f64, 
-                10.0
-            );
-            scene.fill(
-                vello::peniko::Fill::NonZero,
-                Affine::IDENTITY,
-                Color::RED,
-                None,
-                &rect,
-            );
+    //         // Draw a red rounded rectangle in the top-left
+    //         let rect = RoundedRect::new(
+    //             (x + 20.0) as f64, 
+    //             (y + 20.0) as f64, 
+    //             (x + 120.0) as f64, 
+    //             (y + 80.0) as f64, 
+    //             10.0
+    //         );
+    //         scene.fill(
+    //             vello::peniko::Fill::NonZero,
+    //             Affine::IDENTITY,
+    //             Color::RED,
+    //             None,
+    //             &rect,
+    //         );
             
-            Ok(())
-        });
+    //         Ok(())
+    //     });
 
     let main_row = row()
         .with_size(1000.0, 600.0) // Increased height to accommodate new widgets
@@ -210,7 +210,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         .with_gap(40.0)
         .with_child(main_column.into_container_element())
-        .with_child(Element::new_widget(Box::new(custom_canvas)));
+        // .with_child(Element::new_widget(Box::new(custom_canvas)));
+        .with_child(advanced_canvas_example::create_advanced_canvas_app()?);
     
     // Create the root element with responsive styling
     let container = container()
