@@ -1,10 +1,14 @@
-use vello::{Renderer, Scene, RenderParams, AaConfig, AaSupport, RendererOptions};
-use wgpu::{Device, Queue, Surface, TextureFormat, TextureView};
+use vello::{Renderer, Scene, RenderParams, AaConfig, AaSupport, RendererOptions, CustomRenderFunc, ExternalResource};
+use wgpu::{Device, Queue, Surface, TextureFormat, TextureView, CommandEncoder};
 use std::sync::Arc;
 use std::num::NonZeroUsize;
 use crate::scene_cache::SceneCache;
 
+// Legacy type for existing custom render functions (executed separately)
 pub type CustomRenderFn = Box<dyn Fn(&Device, &Queue, &TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>> + Send + Sync>;
+
+// New type that can share Vello's command encoder
+pub type SharedEncoderRenderFn = Box<dyn Fn(&Device, &Queue, &mut CommandEncoder, &[ExternalResource]) -> Result<(), vello::Error> + Send + Sync>;
 
 #[derive(Debug)]
 pub enum RenderError {
@@ -46,6 +50,7 @@ pub struct VelloRenderer {
     viewport_width: u32,
     viewport_height: u32,
     custom_render_fns: Vec<CustomRenderFn>,
+    shared_encoder_render_fn: Option<SharedEncoderRenderFn>,
 }
 
 impl VelloRenderer {
@@ -70,6 +75,7 @@ impl VelloRenderer {
             viewport_width: 0,
             viewport_height: 0,
             custom_render_fns: Vec::new(),
+            shared_encoder_render_fn: None,
         })
     }
 
@@ -95,12 +101,11 @@ impl VelloRenderer {
     }
 
     pub fn render_to_texture_view(&mut self, view: &TextureView, width: u32, height: u32) -> Result<(), RenderError> {
-        // Execute custom render functions BEFORE Vello renders
-        // This allows custom GPU commands to render to the same texture view
+        // Execute legacy custom render functions BEFORE Vello renders (for backwards compatibility)
         self.execute_custom_render_fns(view, width, height)?;
 
         let params = RenderParams {
-            base_color: vello::peniko::Color::TRANSPARENT, // Changed to transparent so custom rendering shows through
+            base_color: vello::peniko::Color::TRANSPARENT,
             width,
             height,
             antialiasing_method: AaConfig::Msaa16,
@@ -109,6 +114,49 @@ impl VelloRenderer {
         self.renderer.render_to_texture(&self.device, &self.queue, &self.scene, view, &params)?;
         
         Ok(())
+    }
+
+    /// Render to texture view with a shared encoder render function.
+    /// This allows custom rendering to share Vello's command encoder for proper compositing.
+    pub fn render_to_texture_view_with_shared_encoder<F>(&mut self, 
+        view: &TextureView, 
+        width: u32, 
+        height: u32,
+        shared_render_func: Option<F>
+    ) -> Result<(), RenderError> 
+    where 
+        F: Fn(&Device, &Queue, &mut CommandEncoder, &[ExternalResource]) -> Result<(), vello::Error> + Send + Sync + 'static
+    {
+        // Execute legacy custom render functions BEFORE Vello renders (for backwards compatibility)
+        self.execute_custom_render_fns(view, width, height)?;
+
+        // Set the shared encoder render function if provided
+        if let Some(func) = shared_render_func {
+            self.renderer.set_custom_render_func(func);
+        } else {
+            self.renderer.clear_custom_render_func();
+        }
+
+        let params = RenderParams {
+            base_color: vello::peniko::Color::TRANSPARENT,
+            width,
+            height,
+            antialiasing_method: AaConfig::Msaa16,
+        };
+
+        self.renderer.render_to_texture(&self.device, &self.queue, &self.scene, view, &params)?;
+        
+        Ok(())
+    }
+
+    /// Sets a shared encoder render function that will be used in subsequent renders
+    pub fn set_shared_encoder_render_fn(&mut self, render_fn: SharedEncoderRenderFn) {
+        self.shared_encoder_render_fn = Some(render_fn);
+    }
+
+    /// Clears the shared encoder render function
+    pub fn clear_shared_encoder_render_fn(&mut self) {
+        self.shared_encoder_render_fn = None;
     }
 
     pub fn render_to_texture_view_with_direct<F>(&mut self, view: &TextureView, width: u32, height: u32, direct_render_fn: Option<F>) -> Result<(), RenderError> 
@@ -165,6 +213,7 @@ impl VelloRenderer {
     pub fn clear_custom_render_fns(&mut self) {
         self.custom_render_fns.clear();
     }
+
 
     fn execute_custom_render_fns(&self, view: &TextureView, width: u32, height: u32) -> Result<(), RenderError> {
         for render_fn in &self.custom_render_fns {

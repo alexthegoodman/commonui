@@ -577,4 +577,54 @@ impl Element {
             }
         }
     }
+
+    /// Creates a combined shared encoder render function from all Canvas widgets in the element tree
+    pub fn create_combined_shared_encoder_render_func(&self) -> Option<impl Fn(&wgpu::Device, &wgpu::Queue, &mut wgpu::CommandEncoder, &[vello::ExternalResource]) -> Result<(), vello::Error> + Send + Sync + 'static> {
+        use crate::widgets::canvas::CanvasWidget;
+        use std::sync::Arc;
+        use vello::ExternalResource;
+        
+        let mut render_functions = Vec::new();
+        self.collect_canvas_shared_encoder_funcs(&mut render_functions);
+        
+        if render_functions.is_empty() {
+            return None;
+        }
+        
+        Some(move |device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, external_resources: &[ExternalResource]| -> Result<(), vello::Error> {
+            for render_func in &render_functions {
+                render_func(device, queue, encoder, external_resources)?;
+            }
+            Ok(())
+        })
+    }
+    
+    fn collect_canvas_shared_encoder_funcs(&self, functions: &mut Vec<Box<dyn Fn(&wgpu::Device, &wgpu::Queue, &mut wgpu::CommandEncoder, &[vello::ExternalResource]) -> Result<(), vello::Error> + Send + Sync>>) {
+        use crate::widgets::canvas::CanvasWidget;
+        
+        match self {
+            Element::Widget(widget) => {
+                if let Some(canvas_widget) = widget.as_any().downcast_ref::<CanvasWidget>() {
+                    if let Some(func) = canvas_widget.create_shared_encoder_render_func() {
+                        functions.push(Box::new(func));
+                    }
+                }
+            },
+            Element::Container { widget, children } => {
+                if let Some(canvas_widget) = widget.as_any().downcast_ref::<CanvasWidget>() {
+                    if let Some(func) = canvas_widget.create_shared_encoder_render_func() {
+                        functions.push(Box::new(func));
+                    }
+                }
+                for child in children {
+                    child.collect_canvas_shared_encoder_funcs(functions);
+                }
+            },
+            Element::Fragment(children) => {
+                for child in children {
+                    child.collect_canvas_shared_encoder_funcs(functions);
+                }
+            }
+        }
+    }
 }

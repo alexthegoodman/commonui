@@ -452,8 +452,14 @@ impl App {
             }
         }
         
-        // Now render Vello content on top
-        vello_renderer.render_to_texture_view(&view, width, height)?;
+        // Now render Vello content with shared encoder render functions
+        let shared_encoder_func = if let Some(root) = self.widget_manager.root() {
+            root.create_combined_shared_encoder_render_func()
+        } else {
+            None
+        };
+        
+        vello_renderer.render_to_texture_view_with_shared_encoder(&view, width, height, shared_encoder_func)?;
         surface_texture.present();
         
         // End frame

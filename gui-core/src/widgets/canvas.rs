@@ -3,12 +3,15 @@ use crate::event::Event;
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use vello::Scene;
-use wgpu::{Device, Queue};
+use wgpu::{Device, Queue, CommandEncoder};
+use vello::ExternalResource;
+use std::sync::Arc;
 
 static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(2000);
 
 pub type CanvasRenderFunc = Box<dyn Fn(&mut Scene, &Device, &Queue, f32, f32, f32, f32) -> Result<(), WidgetError> + Send + Sync>;
 pub type CanvasDirectRenderFunc = Box<dyn Fn(&Device, &Queue, &wgpu::TextureView, u32, u32, f32, f32, f32, f32) -> Result<(), Box<dyn std::error::Error>> + Send + Sync>;
+pub type CanvasSharedEncoderRenderFunc = Arc<dyn Fn(&Device, &Queue, &mut CommandEncoder, &[ExternalResource], f32, f32, f32, f32) -> Result<(), vello::Error> + Send + Sync>;
 
 pub struct CanvasWidget {
     id: WidgetId,
@@ -18,6 +21,7 @@ pub struct CanvasWidget {
     height: f32,
     render_func: Option<CanvasRenderFunc>,
     direct_render_func: Option<CanvasDirectRenderFunc>,
+    shared_encoder_render_func: Option<CanvasSharedEncoderRenderFunc>,
     dirty: bool,
     z_index: i32,
 }
@@ -32,6 +36,7 @@ impl CanvasWidget {
             height: 100.0,
             render_func: None,
             direct_render_func: None,
+            shared_encoder_render_func: None,
             dirty: true,
             z_index: 0,
         }
@@ -71,6 +76,15 @@ impl CanvasWidget {
         F: Fn(&Device, &Queue, &wgpu::TextureView, u32, u32, f32, f32, f32, f32) -> Result<(), Box<dyn std::error::Error>> + Send + Sync + 'static,
     {
         self.direct_render_func = Some(Box::new(direct_render_func));
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_shared_encoder_render_func<F>(mut self, shared_encoder_render_func: F) -> Self
+    where
+        F: Fn(&Device, &Queue, &mut CommandEncoder, &[ExternalResource], f32, f32, f32, f32) -> Result<(), vello::Error> + Send + Sync + 'static,
+    {
+        self.shared_encoder_render_func = Some(Arc::new(shared_encoder_render_func));
         self.dirty = true;
         self
     }
@@ -117,6 +131,19 @@ impl CanvasWidget {
         self.dirty = true;
     }
 
+    pub fn set_shared_encoder_render_func<F>(&mut self, shared_encoder_render_func: F)
+    where
+        F: Fn(&Device, &Queue, &mut CommandEncoder, &[ExternalResource], f32, f32, f32, f32) -> Result<(), vello::Error> + Send + Sync + 'static,
+    {
+        self.shared_encoder_render_func = Some(Arc::new(shared_encoder_render_func));
+        self.dirty = true;
+    }
+
+    pub fn clear_shared_encoder_render_func(&mut self) {
+        self.shared_encoder_render_func = None;
+        self.dirty = true;
+    }
+
     pub fn bounds(&self) -> (f32, f32, f32, f32) {
         (self.x, self.y, self.width, self.height)
     }
@@ -132,11 +159,28 @@ impl CanvasWidget {
         self.direct_render_func.is_some()
     }
 
+    pub fn has_shared_encoder_render_func(&self) -> bool {
+        self.shared_encoder_render_func.is_some()
+    }
+
     pub fn execute_direct_render(&self, device: &Device, queue: &Queue, view: &wgpu::TextureView, view_width: u32, view_height: u32) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(ref direct_render_func) = self.direct_render_func {
             direct_render_func(device, queue, view, view_width, view_height, self.x, self.y, self.width, self.height)?;
         }
         Ok(())
+    }
+
+    /// Creates a shared encoder render function that captures the canvas position/size
+    pub fn create_shared_encoder_render_func(&self) -> Option<impl Fn(&Device, &Queue, &mut CommandEncoder, &[ExternalResource]) -> Result<(), vello::Error> + Send + Sync + 'static> {
+        let func = Arc::clone(self.shared_encoder_render_func.as_ref()?);
+        let x = self.x;
+        let y = self.y;
+        let width = self.width;
+        let height = self.height;
+        
+        Some(move |device: &Device, queue: &Queue, encoder: &mut CommandEncoder, external_resources: &[ExternalResource]| -> Result<(), vello::Error> {
+            func(device, queue, encoder, external_resources, x, y, width, height)
+        })
     }
 }
 

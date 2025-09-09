@@ -9,9 +9,29 @@ use vello::kurbo::{Circle, RoundedRect};
 use vello::{Scene, kurbo::Affine};
 use wgpu::{Device, Queue};
 
+mod advanced_canvas_example;
+
 // Commented code is retained for reference
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Check if we should run the canvas examples
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        match args[1].as_str() {
+            // "canvas" => {
+            //     println!("Starting Canvas Widget Example...");
+            //     let canvas_app = canvas_example::create_canvas_app()?;
+            //     return canvas_app.run();
+            // }
+            "advanced-canvas" => {
+                println!("Starting Advanced Canvas Example (Vello + Custom Rendering)...");
+                let advanced_app = advanced_canvas_example::create_advanced_canvas_app()?;
+                return advanced_app.run();
+            }
+            _ => {}
+        }
+    }
+
     println!("Starting CommonUI Hello World Example with Canvas and Signals...");
     
     // Create reactive signals

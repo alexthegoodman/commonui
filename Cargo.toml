@@ -17,7 +17,8 @@ repository = "https://github.com/commonui/commonui"
 
 [workspace.dependencies]
 # Core rendering and windowing
-vello = "0.1"
+# vello = "0.1"
+vello = { path = "../vello" }
 wgpu = "0.19"
 winit = "0.29"
 
