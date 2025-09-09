@@ -2,6 +2,7 @@ use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion,
 use crate::event::Event;
 use crate::element::Element;
 use crate::media_query::{MediaQuery, ResponsiveWidget};
+use crate::sizing::{Unit, Size};
 use gui_render::primitives::{Rectangle, Shadow};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -99,6 +100,44 @@ impl BoxWidget {
     pub fn with_size(mut self, width: f32, height: f32) -> Self {
         self.width = width;
         self.height = height;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_size_units(mut self, width: Unit, height: Unit) -> Self {
+        self.width = width.resolve(800.0);
+        self.height = height.resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_size_perc(mut self, width: f32, height: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.height = Unit::Perc(height).resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.width = width;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.height = height;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width_perc(mut self, width: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height_perc(mut self, height: f32) -> Self {
+        self.height = Unit::Perc(height).resolve(600.0);
         self.dirty = true;
         self
     }
@@ -348,6 +387,44 @@ impl StackWidget {
     pub fn with_size(mut self, width: f32, height: f32) -> Self {
         self.width = width;
         self.height = height;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_size_units(mut self, width: Unit, height: Unit) -> Self {
+        self.width = width.resolve(800.0);
+        self.height = height.resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_size_perc(mut self, width: f32, height: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.height = Unit::Perc(height).resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.width = width;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.height = height;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width_perc(mut self, width: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height_perc(mut self, height: f32) -> Self {
+        self.height = Unit::Perc(height).resolve(600.0);
         self.dirty = true;
         self
     }

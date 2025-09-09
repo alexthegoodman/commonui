@@ -6,6 +6,7 @@ pub mod app;
 pub mod event;
 pub mod widgets;
 pub mod media_query;
+pub mod sizing;
 
 pub use widget::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 pub use element::Element;
@@ -15,3 +16,4 @@ pub use app::App;
 pub use event::Event;
 pub use widgets::*;
 pub use media_query::*;
+pub use sizing::*;

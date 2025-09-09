@@ -201,6 +201,24 @@ pub fn create_advanced_canvas_app() -> Result<Element, Box<dyn std::error::Error
                     occlusion_query_set: None,
                     timestamp_writes: None,
                 });
+
+                // // Add scissor clipping to canvas bounds
+                // render_pass.set_scissor_rect(
+                //     _x as u32,
+                //     _y as u32,
+                //     _width as u32,
+                //     _height as u32
+                // );
+
+                // Set a viewport that matches your canvas bounds:
+                render_pass.set_viewport(
+                    _x,           // x offset
+                    _y,           // y offset
+                    _width,       // width
+                    _height,      // height
+                    0.0,          // min_depth
+                    1.0           // max_depth
+                );
                 
                 // Set up the render pipeline and vertex buffer
                 render_pass.set_pipeline(&render_pipeline);
@@ -218,7 +236,7 @@ pub fn create_advanced_canvas_app() -> Result<Element, Box<dyn std::error::Error
     // Create a container to hold our advanced canvas
     let root = container()
         .with_size(800.0, 600.0)
-        .with_background_color(Color::rgba8(200, 200, 200, 255))
+        // .with_background_color(Color::rgba8(200, 200, 200, 255))
         .with_child(Element::new_widget(Box::new(advanced_canvas)))
         .into_container_element();
 

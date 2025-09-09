@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     }
     // }
 
-    println!("Starting CommonUI Hello World Example with Canvas and Signals...");
+    println!("Starting CommonUI Hello World Example...");
     
     // Create reactive signals
     let counter_signal = Signal::new(0i32);
@@ -129,9 +129,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
     
+    // Create a demonstration of percentage-sized buttons
+    let perc_button_1 = button("50% Width")
+        .with_width_perc(50.0)
+        .with_height(40.0)
+        .with_colors(
+            Color::rgba8(255, 100, 100, 255), // Red
+            Color::rgba8(255, 120, 120, 255),
+            Color::rgba8(200, 80, 80, 255)
+        );
+
+    let perc_button_2 = button("30% Size")
+        .with_size_perc(30.0, 8.0) // 30% width, 8% height
+        .with_colors(
+            Color::rgba8(100, 255, 100, 255), // Green
+            Color::rgba8(120, 255, 120, 255),
+            Color::rgba8(80, 200, 80, 255)
+        );
+
+    // Create a container with percentage sizing
+    let perc_container = container()
+        .with_width_perc(80.0) // 80% of available width
+        .with_height(60.0)     // Fixed height
+        .with_background_color(Color::rgba8(200, 200, 255, 100))
+        .with_border_radius(8.0)
+        .with_padding(Padding::all(10.0));
+
     // Create a column layout to arrange elements vertically
     let main_column = column()
-        .with_size(300.0, 240.0) // Increased height to accommodate new widgets
+        .with_size_perc(90.0, 80.0) // 90% width, 80% height - demonstrating percentage sizing
         .with_main_axis_alignment(MainAxisAlignment::Center)
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
         // .with_gap(10.0)
@@ -139,6 +165,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(subtitle_text)))
         .with_child(Element::new_widget(Box::new(text_input)))
         .with_child(Element::new_widget(Box::new(number_input)))
+        .with_child(perc_container.into_container_element())
+        .with_child(Element::new_widget(Box::new(perc_button_1)))
+        .with_child(Element::new_widget(Box::new(perc_button_2)))
         // .with_child(Element::new_widget(Box::new(counter_slider)))
         .with_child(Element::new_widget(Box::new(click_button)));
 

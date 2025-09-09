@@ -1,6 +1,7 @@
 use crate::{Widget, WidgetId, EventResult, WidgetError, RenderData, DirtyRegion, WidgetUpdateContext};
 use crate::event::Event;
 use crate::element::Element;
+use crate::sizing::{Unit, Size};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -63,6 +64,44 @@ impl RowWidget {
     pub fn with_size(mut self, width: f32, height: f32) -> Self {
         self.width = width;
         self.height = height;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_size_units(mut self, width: Unit, height: Unit) -> Self {
+        self.width = width.resolve(800.0);
+        self.height = height.resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_size_perc(mut self, width: f32, height: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.height = Unit::Perc(height).resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.width = width;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.height = height;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width_perc(mut self, width: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height_perc(mut self, height: f32) -> Self {
+        self.height = Unit::Perc(height).resolve(600.0);
         self.dirty = true;
         self
     }
@@ -333,6 +372,44 @@ impl ColumnWidget {
         self
     }
 
+    pub fn with_size_units(mut self, width: Unit, height: Unit) -> Self {
+        self.width = width.resolve(800.0);
+        self.height = height.resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_size_perc(mut self, width: f32, height: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.height = Unit::Perc(height).resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.width = width;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.height = height;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width_perc(mut self, width: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height_perc(mut self, height: f32) -> Self {
+        self.height = Unit::Perc(height).resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
     pub fn with_main_axis_alignment(mut self, alignment: MainAxisAlignment) -> Self {
         self.main_axis_alignment = alignment;
         self.dirty = true;
@@ -586,6 +663,44 @@ impl GridWidget {
     pub fn with_size(mut self, width: f32, height: f32) -> Self {
         self.width = width;
         self.height = height;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_size_units(mut self, width: Unit, height: Unit) -> Self {
+        self.width = width.resolve(800.0);
+        self.height = height.resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_size_perc(mut self, width: f32, height: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.height = Unit::Perc(height).resolve(600.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.width = width;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.height = height;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_width_perc(mut self, width: f32) -> Self {
+        self.width = Unit::Perc(width).resolve(800.0);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_height_perc(mut self, height: f32) -> Self {
+        self.height = Unit::Perc(height).resolve(600.0);
         self.dirty = true;
         self
     }
