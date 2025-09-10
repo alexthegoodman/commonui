@@ -176,6 +176,14 @@ impl ButtonWidget {
         })
     }
     
+    pub fn get_position(&self) -> (f32, f32) {
+        (self.x, self.y)
+    }
+    
+    pub fn get_size(&self) -> (f32, f32) {
+        (self.width, self.height)
+    }
+    
     pub fn create_text_primitive(&self) -> Option<gui_render::primitives::Text> {
         if !self.label.is_empty() {
             // Position text in the center of the button

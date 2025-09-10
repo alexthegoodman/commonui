@@ -154,25 +154,69 @@ impl RowWidget {
             return;
         }
 
-        // For simplicity, assume each child takes equal width
-        // In a real implementation, this would use the layout system (Taffy)
+        // Collect intrinsic sizes from children first
+        let mut child_widths = Vec::new();
+        let mut total_intrinsic_width = 0.0;
+        
+        for child in &self.children {
+            // Try to get intrinsic width from child widgets
+            let intrinsic_width = match child {
+                crate::Element::Widget(_widget) => {
+                    // TODO: treat like a real system
+                    // For now, use a reasonable default - in a real system we'd query the widget
+                    50.0 // Default intrinsic width
+                }
+                crate::Element::Container { .. } => {
+                    // TODO: treat like a real system
+                    // For containers, use remaining space or intrinsic size
+                    0.0 // Will be calculated as flex space
+                }
+                crate::Element::Fragment(_) => 0.0,
+            };
+            child_widths.push(intrinsic_width);
+            total_intrinsic_width += intrinsic_width;
+        }
+        
         let child_count = self.children.len() as f32;
         let total_gap = self.gap * (child_count - 1.0);
         let available_width = self.width - total_gap;
-        let child_width = available_width / child_count;
+        let remaining_width = available_width - total_intrinsic_width;
+        
+        // Distribute remaining width among flexible children (containers)
+        let mut flex_children_count = 0;
+        for (i, child) in self.children.iter().enumerate() {
+            if child_widths[i] == 0.0 { // Flexible child
+                flex_children_count += 1;
+            }
+        }
+        
+        let flex_width = if flex_children_count > 0 {
+            remaining_width.max(0.0) / flex_children_count as f32
+        } else {
+            0.0
+        };
+        
+        // Update child widths with flex calculations
+        for (i, child) in self.children.iter().enumerate() {
+            if child_widths[i] == 0.0 {
+                child_widths[i] = flex_width;
+            }
+        }
 
         let mut current_x = self.x;
 
-        // Apply main axis alignment
+        // Apply main axis alignment (simplified for now)
         match self.main_axis_alignment {
             MainAxisAlignment::Start => {
                 current_x = self.x;
             }
             MainAxisAlignment::End => {
-                current_x = self.x + self.width - (child_width * child_count + total_gap);
+                let total_content_width: f32 = child_widths.iter().sum::<f32>() + total_gap;
+                current_x = self.x + self.width - total_content_width;
             }
             MainAxisAlignment::Center => {
-                current_x = self.x + (self.width - (child_width * child_count + total_gap)) / 2.0;
+                let total_content_width: f32 = child_widths.iter().sum::<f32>() + total_gap;
+                current_x = self.x + (self.width - total_content_width) / 2.0;
             }
             MainAxisAlignment::SpaceBetween | 
             MainAxisAlignment::SpaceAround | 
@@ -195,6 +239,8 @@ impl RowWidget {
                 CrossAxisAlignment::Stretch => row_y,
             };
 
+            let child_width = child_widths[i];
+            
             // Position the child widget
             Self::position_child_element(child, current_x, child_y, child_width, row_height);
             

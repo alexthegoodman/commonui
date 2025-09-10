@@ -276,7 +276,11 @@ impl Element {
                 background_rect.draw(scene);
             }
         } else if let Some(button_widget) = widget.as_any().downcast_ref::<ButtonWidget>() {
+            // let (x, y) = button_widget.get_position();
+            // let (w, h) = button_widget.get_size();
+            // println!("Rendering button at x={}, y={}, w={}, h={}", x, y, w, h);
             let background_rect = button_widget.create_background_rectangle();
+            // println!("Button background color: {:?}", button_widget.get_current_color());
             background_rect.draw(scene);
             if let Some(text_primitive) = button_widget.create_text_primitive() {
                 text_primitive.draw(scene, text_renderer);
@@ -451,7 +455,7 @@ impl Element {
         // println!("Positioning child at x={}, y={}", x, y);
         match child {
             Element::Widget(widget) => {
-                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget, canvas::CanvasWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::{ColumnWidget, RowWidget}, canvas::CanvasWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     // println!("  Positioning text widget at x={}, y={}", x, y);
@@ -465,6 +469,8 @@ impl Element {
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     // println!("  Positioning column widget at x={}, y={}", x, y);
                     column_widget.set_position(x, y);
+                } else if let Some(row_widget) = widget.as_any_mut().downcast_mut::<RowWidget>() {
+                    row_widget.set_position(x, y);
                 } else if let Some(input_widget) = widget.as_any_mut().downcast_mut::<InputWidget>() {
                     input_widget.set_position(x, y);
                 } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
@@ -474,7 +480,7 @@ impl Element {
                 }
             },
             Element::Container { widget, .. } => {
-                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget, canvas::CanvasWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::{ColumnWidget, RowWidget}, canvas::CanvasWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     // println!("  Positioning text widget (container) at x={}, y={}", x, y);
@@ -488,6 +494,8 @@ impl Element {
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     // println!("  Positioning column widget (container) at x={}, y={}", x, y);
                     column_widget.set_position(x, y);
+                } else if let Some(row_widget) = widget.as_any_mut().downcast_mut::<RowWidget>() {
+                    row_widget.set_position(x, y);
                 } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
                     canvas_widget.set_position(x, y);
                 }
@@ -501,7 +509,7 @@ impl Element {
     fn position_child_element_for_alignment(child: &mut Element, x: f32, y: f32, container_width: f32, _height: f32, cross_alignment: crate::widgets::layout::CrossAxisAlignment) {
         match child {
             Element::Widget(widget) => {
-                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget, canvas::CanvasWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::{ColumnWidget, RowWidget}, canvas::CanvasWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     let final_x = match cross_alignment {
@@ -528,6 +536,9 @@ impl Element {
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     column_widget.set_position(x, y);
                     column_widget.dirty = true;
+                } else if let Some(row_widget) = widget.as_any_mut().downcast_mut::<RowWidget>() {
+                    row_widget.set_position(x, y);
+                    row_widget.dirty = true;
                 } else if let Some(input_widget) = widget.as_any_mut().downcast_mut::<InputWidget>() {
                     input_widget.set_position(x, y);
                 } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
@@ -537,7 +548,7 @@ impl Element {
                 }
             },
             Element::Container { widget, .. } => {
-                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::ColumnWidget, canvas::CanvasWidget};
+                use crate::widgets::{text::TextWidget, interactive::{ButtonWidget, InputWidget, SliderWidget}, container::BoxWidget, layout::{ColumnWidget, RowWidget}, canvas::CanvasWidget};
                 
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     let final_x = match cross_alignment {
@@ -564,6 +575,9 @@ impl Element {
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     column_widget.set_position(x, y);
                     column_widget.dirty = true;
+                } else if let Some(row_widget) = widget.as_any_mut().downcast_mut::<RowWidget>() {
+                    row_widget.set_position(x, y);
+                    row_widget.dirty = true;
                 } else if let Some(input_widget) = widget.as_any_mut().downcast_mut::<InputWidget>() {
                     input_widget.set_position(x, y);
                 } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
