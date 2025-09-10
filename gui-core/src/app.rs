@@ -8,11 +8,12 @@ use winit::{
     window::{Window, WindowId, WindowBuilder},
     keyboard::{KeyCode, ModifiersState},
 };
-use wgpu::{Device, Queue, Surface, Instance, Adapter, SurfaceConfiguration, TextureUsages, PresentMode};
+use wgpu::{Device, Queue, Surface, Instance, Adapter, SurfaceConfiguration, TextureUsages, PresentMode, CommandEncoder};
 use gui_reactive::global_frame_scheduler;
 use gui_render::{VelloRenderer, primitives::TextRenderer};
 use crate::event::{Event, MouseEvent, KeyboardEvent, Point};
 use crate::media_query::ViewportSize;
+use vello::ExternalResource;
 
 #[derive(Debug)]
 enum InternalEvent {
@@ -22,7 +23,7 @@ enum InternalEvent {
 use crate::{WidgetManager, Element};
 
 pub struct App {
-    window: Option<Arc<Window>>,
+    pub window: Option<Arc<Window>>,
     internal_event_sender: mpsc::UnboundedSender<InternalEvent>,
     internal_event_receiver: mpsc::UnboundedReceiver<InternalEvent>,
     widget_manager: WidgetManager,
@@ -30,8 +31,8 @@ pub struct App {
     wgpu_instance: Option<Instance>,
     surface: Option<Surface<'static>>,
     adapter: Option<Adapter>,
-    device: Option<Arc<Device>>,
-    queue: Option<Arc<Queue>>,
+    pub device: Option<Arc<Device>>,
+    pub queue: Option<Arc<Queue>>,
     surface_config: Option<SurfaceConfiguration>,
     vello_renderer: Option<VelloRenderer>,
     text_renderer: Option<TextRenderer>,
@@ -41,6 +42,10 @@ pub struct App {
     last_mouse_position: [f64; 2],
     title: String,
     inner_size: [i32; 2],
+    // Resume callback
+    on_resume_callback: Option<Box<dyn FnOnce(Arc<Device>, Arc<Queue>) + Send>>,
+    // Custom render callback for external rendering (like stunts-native)
+    custom_render_callback: Option<Box<dyn Fn(&wgpu::Device, &wgpu::Queue, &wgpu::TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>> + Send + Sync>>,
 }
 
 impl App {
@@ -64,7 +69,9 @@ impl App {
             full_update_count: 0,
             last_mouse_position: [0.0, 0.0],
             title: "CommonUI".to_string(),
-            inner_size: [800, 600]
+            inner_size: [800, 600],
+            on_resume_callback: None,
+            custom_render_callback: None,
         }
     }
 
@@ -81,6 +88,109 @@ impl App {
     pub fn with_inner_size(mut self, inner_size: [i32; 2]) -> Result<Self, Box<dyn std::error::Error>> {
         self.inner_size = inner_size;
         Ok(self)
+    }
+
+    pub fn on_resume<F>(mut self, callback: F) -> Self 
+    where
+        F: FnOnce(Arc<Device>, Arc<Queue>) + Send + 'static,
+    {
+        self.on_resume_callback = Some(Box::new(callback));
+        self
+    }
+
+    pub fn with_custom_render<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(&wgpu::Device, &wgpu::Queue, &wgpu::TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>> + Send + Sync + 'static,
+    {
+        self.custom_render_callback = Some(Box::new(callback));
+        self
+    }
+
+    pub fn run_with_editor_state<T, F>(
+        mut self,
+        editor_state: T,
+        gpu_setup_callback: impl FnOnce(std::sync::Arc<wgpu::Device>, std::sync::Arc<wgpu::Queue>) + 'static,
+        render_callback: Arc<F>,
+    ) -> Result<(), Box<dyn std::error::Error>> 
+    where
+        T: 'static,
+        F: Fn(&wgpu::Device, &wgpu::Queue, &mut wgpu::CommandEncoder, &[ExternalResource<'_>], &wgpu::TextureView) -> Result<(), vello::Error> + 'static,
+    {
+        let event_loop = EventLoop::new()?;
+        let mut gpu_setup_callback = Some(gpu_setup_callback);
+        
+        event_loop.run(move |event, event_loop_window_target| {
+            match event {
+                WinitEvent::NewEvents(_) => {
+                    // Start of new event batch
+                }
+                WinitEvent::Resumed => {
+                    if self.window.is_none() {
+                        let window = WindowBuilder::new()
+                            .with_title(self.title.clone())
+                            .with_inner_size(winit::dpi::LogicalSize::new(self.inner_size[0], self.inner_size[1]))
+                            .build(event_loop_window_target)
+                            .unwrap();
+                        self.window = Some(Arc::new(window));
+                        
+                        // Initialize wgpu rendering
+                        if let Err(e) = self.init_rendering() {
+                            eprintln!("Failed to initialize rendering: {}", e);
+                        }
+
+                        // Run GPU setup callback if provided
+                        if let (Some(device), Some(queue)) = (self.device.as_ref(), self.queue.as_ref()) {
+                            if let Some(callback) = gpu_setup_callback.take() {
+                                callback(device.clone(), queue.clone());
+                            }
+                        }
+
+                        // Run on_resume callback if provided
+                        if let Some(callback) = self.on_resume_callback.take() {
+                            if let (Some(device), Some(queue)) = (self.device.as_ref(), self.queue.as_ref()) {
+                                callback(device.clone(), queue.clone());
+                            }
+                        }
+                    }
+                }
+                WinitEvent::WindowEvent { window_id, event } => {
+                    match &event {
+                        WindowEvent::RedrawRequested => {
+                            // Handle rendering for specific window
+                            if let Some(window) = &self.window {
+                                if window.id() == window_id {
+                                    // Begin frame with frame synchronization
+                                    let frame_context = global_frame_scheduler().begin_frame();
+                                    
+                                    // Render frame with custom editor state render
+                                    self.render_frame_with_editor_state(&editor_state, render_callback.clone());
+                                    
+                                    // End frame - this will flush any batched updates
+                                    global_frame_scheduler().end_frame(frame_context);
+                                }
+                            }
+                        }
+                        _ => {
+                            if self.handle_window_event(window_id, event) {
+                                event_loop_window_target.exit();
+                            }
+                        }
+                    }
+                }
+                WinitEvent::DeviceEvent { device_id, event } => {
+                    self.handle_device_event(device_id, event);
+                }
+                WinitEvent::AboutToWait => {
+                    // Request redraw
+                    if let Some(window) = &self.window {
+                        window.request_redraw();
+                    }
+                }
+                _ => {}
+            }
+        })?;
+        
+        Ok(())
     }
 
     pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -103,6 +213,13 @@ impl App {
                         // Initialize wgpu rendering
                         if let Err(e) = self.init_rendering() {
                             eprintln!("Failed to initialize rendering: {}", e);
+                        }
+
+                        // Run on_resume callback if provided
+                        if let Some(callback) = self.on_resume_callback.take() {
+                            if let (Some(device), Some(queue)) = (self.device.as_ref(), self.queue.as_ref()) {
+                                callback(device.clone(), queue.clone());
+                            }
                         }
                     }
                 }
@@ -341,6 +458,54 @@ impl App {
         self.widget_manager.clear_dirty_widgets();
     }
 
+    fn render_frame_with_editor_state<T, F>(
+        &mut self,
+        editor_state: &T,
+        // render_callback: &impl Fn(&T, &wgpu::Device, &wgpu::Queue, &wgpu::TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>>,
+        render_callback: Arc<F>
+    ) where
+        F: Fn(&wgpu::Device, &wgpu::Queue, &mut wgpu::CommandEncoder, &[ExternalResource<'_>], &wgpu::TextureView) -> Result<(), vello::Error> + 'static {
+        // Process any pending internal events
+        let mut needs_immediate_update = false;
+        while let Ok(internal_event) = self.internal_event_receiver.try_recv() {
+            match internal_event {
+                InternalEvent::MousePositionUpdate(position) => {
+                    self.last_mouse_position = position;
+                }
+                InternalEvent::GuiEvent(event) => {
+                    let result = self.widget_manager.handle_event(&event);
+                    // If event was handled (interaction occurred), trigger immediate update
+                    if matches!(result, crate::EventResult::Handled) {
+                        needs_immediate_update = true;
+                    }
+                }
+            }
+        }
+        
+        // Check if it's time for a full update (every 1 second)
+        let now = Instant::now();
+        let should_full_update = now.duration_since(self.last_full_update) >= Duration::from_secs(1);
+        
+        if (should_full_update && self.full_update_count == 0) || needs_immediate_update {
+            println!("update all");
+            // Update all widgets - widgets will mark themselves as dirty when their position/state changes
+            if let Err(e) = self.widget_manager.update_all() {
+                eprintln!("Widget update error: {:?}", e);
+            }
+            
+            self.last_full_update = now;
+            self.full_update_count = self.full_update_count + 1;
+        }
+        
+        // Render widgets to screen with editor state
+        if let Err(e) = self.render_widgets_with_editor_state(editor_state, render_callback) {
+            eprintln!("Render error: {:?}", e);
+        }
+        
+        // Clear dirty widgets for next frame
+        self.widget_manager.clear_dirty_widgets();
+    }
+
     fn init_rendering(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let window = self.window.as_ref().ok_or("Window not available")?;
         
@@ -452,6 +617,15 @@ impl App {
             }
         }
         
+        // Execute custom render callback (for external rendering like stunts-native)
+        if let Some(custom_callback) = &self.custom_render_callback {
+            if let (Some(device), Some(queue)) = (self.device.as_ref(), self.queue.as_ref()) {
+                if let Err(e) = custom_callback(device, queue, &view, width, height) {
+                    eprintln!("Custom render error: {:?}", e);
+                }
+            }
+        }
+        
         // Now render Vello content with shared encoder render functions
         let shared_encoder_func = if let Some(root) = self.widget_manager.root() {
             root.create_combined_shared_encoder_render_func()
@@ -459,7 +633,58 @@ impl App {
             None
         };
         
-        vello_renderer.render_to_texture_view_with_shared_encoder(&view, width, height, shared_encoder_func)?;
+        // vello_renderer.render_to_texture_view_with_shared_encoder(&view, width, height, shared_encoder_func)?;
+        surface_texture.present();
+        
+        // End frame
+        vello_renderer.end_frame();
+        
+        Ok(())
+    }
+
+    fn render_widgets_with_editor_state<T, F>(
+        &mut self,
+        editor_state: &T,
+        // render_callback: &impl Fn(&T, &wgpu::Device, &wgpu::Queue, &wgpu::TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>>,
+        render_callback: Arc<F>
+    ) -> Result<(), Box<dyn std::error::Error>> where
+        F: Fn(&wgpu::Device, &wgpu::Queue, &mut wgpu::CommandEncoder, &[ExternalResource<'_>], &wgpu::TextureView) -> Result<(), vello::Error> + 'static {
+        let surface = self.surface.as_ref().ok_or("Surface not initialized")?;
+        let surface_config = self.surface_config.as_ref().ok_or("Surface config not available")?;
+        let vello_renderer = self.vello_renderer.as_mut().ok_or("Vello renderer not initialized")?;
+        
+        // Begin frame
+        vello_renderer.begin_frame();
+        
+        // Render the entire widget tree using the new Element::render method
+        if let Some(root) = self.widget_manager.root() {
+            if let Some(text_renderer) = &mut self.text_renderer {
+                let device = self.device.as_ref().map(|d| d.as_ref());
+                let queue = self.queue.as_ref().map(|q| q.as_ref());
+                if let Err(e) = root.render(vello_renderer.scene(), text_renderer, device, queue) {
+                    eprintln!("Widget render error: {:?}", e);
+                }
+            }
+        }
+        
+        // Render to surface with direct render function
+        let width = surface_config.width;
+        let height = surface_config.height;
+        vello_renderer.set_viewport(width, height);
+        
+        let surface_texture = surface.get_current_texture()?;
+        let view = surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        
+        // Execute direct render functions from Canvas widgets BEFORE Vello renders
+        if let Some(root) = self.widget_manager.root() {
+            if let (Some(device), Some(queue)) = (self.device.as_ref(), self.queue.as_ref()) {
+                if let Err(e) = root.execute_direct_render_functions(device, queue, &view, width, height) {
+                    eprintln!("Direct render error: {:?}", e);
+                }
+            }
+        }
+        
+        vello_renderer.render_to_texture_view_with_shared_encoder(editor_state, &view, width, height, render_callback.clone())?;
         surface_texture.present();
         
         // End frame

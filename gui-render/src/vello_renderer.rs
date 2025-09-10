@@ -118,24 +118,28 @@ impl VelloRenderer {
 
     /// Render to texture view with a shared encoder render function.
     /// This allows custom rendering to share Vello's command encoder for proper compositing.
-    pub fn render_to_texture_view_with_shared_encoder<F>(&mut self, 
+    pub fn render_to_texture_view_with_shared_encoder<T, F>(&mut self, 
+        editor_state: &T,
         view: &TextureView, 
         width: u32, 
         height: u32,
-        shared_render_func: Option<F>
+        // shared_render_func: Option<F>
+        shared_render_func: Arc<F>
     ) -> Result<(), RenderError> 
     where 
-        F: Fn(&Device, &Queue, &mut CommandEncoder, &[ExternalResource]) -> Result<(), vello::Error> + Send + Sync + 'static
+        F: Fn(&Device, &Queue, &mut CommandEncoder, &[ExternalResource], &TextureView) -> Result<(), vello::Error> + 'static
     {
         // Execute legacy custom render functions BEFORE Vello renders (for backwards compatibility)
         self.execute_custom_render_fns(view, width, height)?;
 
         // Set the shared encoder render function if provided
-        if let Some(func) = shared_render_func {
-            self.renderer.set_custom_render_func(func);
-        } else {
-            self.renderer.clear_custom_render_func();
-        }
+        // if let Some(func) = shared_render_func {
+        //     self.renderer.set_custom_render_func(func);
+        // } else {
+        //     self.renderer.clear_custom_render_func();
+        // }
+
+        self.renderer.set_custom_render_func(shared_render_func);
 
         let params = RenderParams {
             base_color: vello::peniko::Color::TRANSPARENT,
@@ -161,7 +165,7 @@ impl VelloRenderer {
 
     pub fn render_to_texture_view_with_direct<F>(&mut self, view: &TextureView, width: u32, height: u32, direct_render_fn: Option<F>) -> Result<(), RenderError> 
     where 
-        F: FnOnce(&wgpu::Device, &wgpu::Queue, &TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>>
+        F: Fn(&wgpu::Device, &wgpu::Queue, &TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>>
     {
         // Execute custom render functions BEFORE Vello renders
         self.execute_custom_render_fns(view, width, height)?;
