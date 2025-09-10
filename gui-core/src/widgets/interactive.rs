@@ -8,6 +8,7 @@ use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use gui_render::primitives::Text;
 use vello::peniko::Color;
+use super::container::Background;
 
 static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(3000);
 
@@ -27,11 +28,12 @@ pub struct ButtonWidget {
     height: f32,
     label: String,
     state: ButtonState,
-    background_color: Color,
-    hover_color: Color,
-    pressed_color: Color,
-    disabled_color: Color,
+    background: Background,
+    hover_background: Background,
+    pressed_background: Background,
+    disabled_background: Background,
     border_radius: f32,
+    font_size: f32,
     shadow: Option<Shadow>,
     on_click: Option<Box<dyn Fn() + Send + Sync>>,
     pub dirty: bool,
@@ -47,11 +49,12 @@ impl ButtonWidget {
             height: 40.0,
             label: label.into(),
             state: ButtonState::Normal,
-            background_color: Color::rgba8(100, 150, 255, 255), // Blue
-            hover_color: Color::rgba8(120, 170, 255, 255),      // Lighter blue
-            pressed_color: Color::rgba8(80, 130, 235, 255),     // Darker blue
-            disabled_color: Color::rgba8(150, 150, 150, 255),   // Gray
+            background: Background::Color(Color::rgba8(100, 150, 255, 255)), // Blue
+            hover_background: Background::Color(Color::rgba8(120, 170, 255, 255)),      // Lighter blue
+            pressed_background: Background::Color(Color::rgba8(80, 130, 235, 255)),     // Darker blue
+            disabled_background: Background::Color(Color::rgba8(150, 150, 150, 255)),   // Gray
             border_radius: 4.0,
+            font_size: 14.0,
             shadow: None,
             on_click: None,
             dirty: true,
@@ -104,15 +107,53 @@ impl ButtonWidget {
     }
 
     pub fn with_colors(mut self, normal: Color, hover: Color, pressed: Color) -> Self {
-        self.background_color = normal;
-        self.hover_color = hover;
-        self.pressed_color = pressed;
+        self.background = Background::Color(normal);
+        self.hover_background = Background::Color(hover);
+        self.pressed_background = Background::Color(pressed);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_backgrounds(mut self, normal: Background, hover: Background, pressed: Background) -> Self {
+        self.background = normal;
+        self.hover_background = hover;
+        self.pressed_background = pressed;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_background(mut self, background: Background) -> Self {
+        self.background = background;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_hover_background(mut self, background: Background) -> Self {
+        self.hover_background = background;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_pressed_background(mut self, background: Background) -> Self {
+        self.pressed_background = background;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_disabled_background(mut self, background: Background) -> Self {
+        self.disabled_background = background;
         self.dirty = true;
         self
     }
 
     pub fn with_border_radius(mut self, radius: f32) -> Self {
         self.border_radius = radius;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_font_size(mut self, size: f32) -> Self {
+        self.font_size = size;
         self.dirty = true;
         self
     }
@@ -155,17 +196,18 @@ impl ButtonWidget {
         y >= self.y && y <= self.y + self.height
     }
 
-    pub fn get_current_color(&self) -> Color {
+    pub fn get_current_background(&self) -> &Background {
         match self.state {
-            ButtonState::Normal => self.background_color,
-            ButtonState::Hovered => self.hover_color,
-            ButtonState::Pressed => self.pressed_color,
-            ButtonState::Disabled => self.disabled_color,
+            ButtonState::Normal => &self.background,
+            ButtonState::Hovered => &self.hover_background,
+            ButtonState::Pressed => &self.pressed_background,
+            ButtonState::Disabled => &self.disabled_background,
         }
     }
 
     pub fn create_background_rectangle(&self) -> Rectangle {
-        Rectangle::new(self.x, self.y, self.width, self.height, self.get_current_color())
+        let brush = self.get_current_background().to_brush();
+        Rectangle::new_with_brush(self.x, self.y, self.width, self.height, brush)
             .with_border_radius(self.border_radius)
     }
 
@@ -187,14 +229,14 @@ impl ButtonWidget {
     pub fn create_text_primitive(&self) -> Option<gui_render::primitives::Text> {
         if !self.label.is_empty() {
             // Position text in the center of the button
-            let text_size = 14.0; // Default font size for buttons
-            let text_x = self.x + (self.width / 2.0) - (self.label.len() as f32 * text_size * 0.3); // Rough centering
-            let text_y = self.y + (self.height / 2.0) - (text_size / 2.0);
+            let text_x = self.x + (self.width / 2.0) - (self.label.len() as f32 * self.font_size * 0.3); // Rough centering
+            // Proper vertical centering: position at center and adjust by font baseline offset
+            let text_y = self.y + (self.height / 2.0) + (self.font_size * 0.25);
             
             // Use white text color for good contrast against button background
             let text_color = Color::rgba8(255, 255, 255, 255);
             
-            Some(Text::new(text_x, text_y, self.label.clone(), text_color, text_size))
+            Some(Text::new(text_x, text_y, self.label.clone(), text_color, self.font_size))
         } else {
             None
         }

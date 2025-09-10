@@ -139,6 +139,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Color::rgba8(200, 80, 80, 255)
         );
 
+    // Create a button with custom font size to test the new functionality
+    let font_size_button = button("Large Font Button")
+        .with_size(200.0, 60.0)
+        .with_font_size(20.0)
+        .with_colors(
+            Color::rgba8(100, 100, 255, 255), // Blue
+            Color::rgba8(120, 120, 255, 255),
+            Color::rgba8(80, 80, 200, 255)
+        );
+
     let perc_button_2 = button("30% Size")
         .with_size_perc(30.0, 8.0) // 30% width, 8% height
         .with_colors(
@@ -166,6 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(text_input)))
         .with_child(Element::new_widget(Box::new(number_input)))
         .with_child(perc_container.into_container_element())
+        .with_child(Element::new_widget(Box::new(font_size_button)))
         .with_child(Element::new_widget(Box::new(perc_button_1)))
         .with_child(Element::new_widget(Box::new(perc_button_2)))
         // .with_child(Element::new_widget(Box::new(counter_slider)))

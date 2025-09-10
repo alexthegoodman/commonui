@@ -34,7 +34,3 @@ pollster = "0.3"
 
 # Development
 criterion = "0.5"
-
-[lib]
-name = "commonui"
-path = "src/lib.rs"

@@ -1,5 +1,5 @@
 use vello::kurbo::{Rect, RoundedRect, Affine, Stroke};
-use vello::peniko::{Color, Fill, Image as VelloImage, Format};
+use vello::peniko::{Color, Fill, Image as VelloImage, Format, Brush};
 use vello::Scene;
 
 pub struct Rectangle {
@@ -7,7 +7,7 @@ pub struct Rectangle {
     pub y: f32,
     pub width: f32,
     pub height: f32,
-    pub color: Color,
+    pub brush: Brush,
     pub border_radius: f32,
     pub stroke_width: Option<f32>,
 }
@@ -19,7 +19,19 @@ impl Rectangle {
             y,
             width,
             height,
-            color,
+            brush: Brush::Solid(color),
+            border_radius: 0.0,
+            stroke_width: None,
+        }
+    }
+
+    pub fn new_with_brush(x: f32, y: f32, width: f32, height: f32, brush: Brush) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+            brush,
             border_radius: 0.0,
             stroke_width: None,
         }
@@ -40,9 +52,9 @@ impl Rectangle {
         
         if self.border_radius > 0.0 {
             let rounded_rect = RoundedRect::from_rect(rect, self.border_radius as f64);
-            scene.fill(Fill::NonZero, Affine::IDENTITY, self.color, None, &rounded_rect);
+            scene.fill(Fill::NonZero, Affine::IDENTITY, &self.brush, None, &rounded_rect);
         } else {
-            scene.fill(Fill::NonZero, Affine::IDENTITY, self.color, None, &rect);
+            scene.fill(Fill::NonZero, Affine::IDENTITY, &self.brush, None, &rect);
         }
     }
 }

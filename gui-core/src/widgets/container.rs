@@ -7,9 +7,50 @@ use gui_render::primitives::{Rectangle, Shadow};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::HashMap;
-use vello::peniko::Color;
+use vello::peniko::{Color, Gradient, Brush};
 
 static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(1000);
+
+/// Background style that can be either a solid color or a gradient
+#[derive(Clone, Debug)]
+pub enum Background {
+    /// Solid color background
+    Color(Color),
+    /// Gradient background
+    Gradient(Gradient),
+}
+
+impl Background {
+    /// Create a solid color background
+    pub fn color(color: Color) -> Self {
+        Self::Color(color)
+    }
+    
+    /// Create a gradient background
+    pub fn gradient(gradient: Gradient) -> Self {
+        Self::Gradient(gradient)
+    }
+    
+    /// Convert to Brush for rendering
+    pub fn to_brush(&self) -> Brush {
+        match self {
+            Self::Color(color) => Brush::Solid(*color),
+            Self::Gradient(gradient) => Brush::Gradient(gradient.clone()),
+        }
+    }
+}
+
+impl From<Color> for Background {
+    fn from(color: Color) -> Self {
+        Self::Color(color)
+    }
+}
+
+impl From<Gradient> for Background {
+    fn from(gradient: Gradient) -> Self {
+        Self::Gradient(gradient)
+    }
+}
 
 pub struct BoxWidget {
     id: WidgetId,
@@ -17,7 +58,7 @@ pub struct BoxWidget {
     y: f32,
     width: f32,
     height: f32,
-    background_color: Option<Color>,
+    background: Option<Background>,
     border_radius: f32,
     padding: Padding,
     shadow: Option<Shadow>,
@@ -39,7 +80,7 @@ pub struct Padding {
 pub struct ResponsiveStyle {
     pub width: Option<f32>,
     pub height: Option<f32>,
-    pub background_color: Option<Color>,
+    pub background: Option<Background>,
     pub padding: Option<Padding>,
     pub border_radius: Option<f32>,
 }
@@ -87,7 +128,7 @@ impl BoxWidget {
             y: 0.0,
             width: 0.0,
             height: 0.0,
-            background_color: None,
+            background: None,
             border_radius: 0.0,
             padding: Padding::default(),
             shadow: None,
@@ -143,7 +184,25 @@ impl BoxWidget {
     }
 
     pub fn with_background_color(mut self, color: Color) -> Self {
-        self.background_color = Some(color);
+        self.background = Some(Background::Color(color));
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_background(mut self, background: Background) -> Self {
+        self.background = Some(background);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_linear_gradient(mut self, gradient: Gradient) -> Self {
+        self.background = Some(Background::Gradient(gradient));
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_radial_gradient(mut self, gradient: Gradient) -> Self {
+        self.background = Some(Background::Gradient(gradient));
         self.dirty = true;
         self
     }
@@ -222,8 +281,9 @@ impl BoxWidget {
     }
 
     pub fn create_background_rectangle(&self) -> Option<Rectangle> {
-        self.background_color.map(|color| {
-            Rectangle::new(self.x, self.y, self.width, self.height, color)
+        self.background.as_ref().map(|background| {
+            let brush = background.to_brush();
+            Rectangle::new_with_brush(self.x, self.y, self.width, self.height, brush)
                 .with_border_radius(self.border_radius)
         })
     }
@@ -338,8 +398,8 @@ impl ResponsiveWidget for BoxWidget {
                     self.height = height;
                     applied_any = true;
                 }
-                if let Some(background_color) = style.background_color {
-                    self.background_color = Some(background_color);
+                if let Some(background) = &style.background {
+                    self.background = Some(background.clone());
                     applied_any = true;
                 }
                 if let Some(padding) = style.padding {
@@ -568,7 +628,7 @@ impl ResponsiveStyle {
         Self {
             width: None,
             height: None,
-            background_color: None,
+            background: None,
             padding: None,
             border_radius: None,
         }
@@ -591,7 +651,12 @@ impl ResponsiveStyle {
     }
 
     pub fn with_background_color(mut self, color: Color) -> Self {
-        self.background_color = Some(color);
+        self.background = Some(Background::Color(color));
+        self
+    }
+
+    pub fn with_background(mut self, background: Background) -> Self {
+        self.background = Some(background);
         self
     }
 
