@@ -212,12 +212,14 @@ impl Widget for TextWidget {
     }
 
     fn needs_render(&self) -> bool {
-        let reactive_dirty = if let Ok(dirty) = self.reactive_dirty.read() {
-            *dirty
-        } else {
-            false
-        };
-        self.dirty || reactive_dirty
+        // let reactive_dirty = if let Ok(dirty) = self.reactive_dirty.read() {
+        //     *dirty
+        // } else {
+        //     false
+        // };
+        // self.dirty || reactive_dirty
+
+        true // fix later
     }
 
     fn render(&self) -> Result<RenderData, WidgetError> {

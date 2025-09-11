@@ -37,6 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create reactive signals
     let counter_signal = Signal::new(0i32);
     let message_signal = Signal::new("Hello, CommonUI World!".to_string());
+    let toggle_signal = Signal::new(true); // For controlling visibility
     
     // Demonstrate signal reactivity with subscriptions
     counter_signal.subscribe_fn(move |count| {
@@ -48,6 +49,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     message_signal.subscribe_fn(move |msg| {
         println!("Message changed to: {}", msg);
+    });
+    
+    // Subscribe to toggle signal changes
+    toggle_signal.subscribe_fn(move |visible| {
+        println!("Toggle container is now: {}", if *visible { "visible" } else { "hidden" });
     });
     
     // Create text that reacts to the message signal with shadow
@@ -129,6 +135,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
     
+    // Create a toggle button to demonstrate display signal functionality
+    let toggle_for_button = toggle_signal.clone();
+    let toggle_button = button("Toggle Container")
+        .with_size(150.0, 40.0)
+        .with_colors(
+            Color::rgba8(150, 100, 255, 255), // Purple
+            Color::rgba8(170, 120, 255, 255),
+            Color::rgba8(120, 80, 200, 255)
+        )
+        .with_shadow(8.0, 8.0, 12.0, Color::rgba8(0, 0, 0, 100))
+        .on_click(move || {
+            let current_visibility = toggle_for_button.get();
+            toggle_for_button.set(!current_visibility);
+        });
+    
     // Create a demonstration of percentage-sized buttons
     let perc_button_1 = button("50% Width")
         .with_width_perc(50.0)
@@ -157,7 +178,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Color::rgba8(80, 200, 80, 255)
         );
 
-    // Create a container with percentage sizing
+    // Create a toggle-able container that demonstrates the display signal functionality
+    let toggle_container = container()
+        .with_size(300.0, 100.0)
+        .with_background_color(Color::rgba8(255, 200, 150, 200))
+        .with_border_radius(12.0)
+        .with_padding(Padding::all(15.0))
+        .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 100))
+        .with_display_signal(toggle_signal.clone())
+        .with_child(Element::new_widget(Box::new(
+            text_signal(Signal::new("I can be toggled on/off!".to_string()))
+                .with_font_size(16.0)
+                .with_color(Color::rgba8(100, 50, 0, 255))
+        )));
+    
+    // Create a container with percentage sizing (always visible for comparison)
     let perc_container = container()
         .with_width_perc(80.0) // 80% of available width
         .with_height(60.0)     // Fixed height
@@ -175,6 +210,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(subtitle_text)))
         .with_child(Element::new_widget(Box::new(text_input)))
         .with_child(Element::new_widget(Box::new(number_input)))
+        .with_child(Element::new_widget(Box::new(toggle_button)))
+        .with_child(toggle_container.into_container_element())
         .with_child(perc_container.into_container_element())
         .with_child(Element::new_widget(Box::new(font_size_button)))
         .with_child(Element::new_widget(Box::new(perc_button_1)))

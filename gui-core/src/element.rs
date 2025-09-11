@@ -233,11 +233,26 @@ impl Element {
                 // Then render all children
                 let mut all_dirty_regions = container_render_data.dirty_regions;
                 let mut max_z_index = container_render_data.z_index;
-                
-                for child in children {
-                    let child_render_data = child.render(scene, text_renderer, device, queue)?;
-                    all_dirty_regions.extend(child_render_data.dirty_regions);
-                    max_z_index = max_z_index.max(child_render_data.z_index);
+
+                if widget.needs_render() {                
+                    for child in children {
+                        // let mut needs_render = true;
+                        // match child {
+                        //     Element::Widget(widget) => {
+                        //         needs_render = widget.needs_render();
+                        //     },
+                        //     Element::Container { widget, children } => {
+                        //         needs_render = widget.needs_render();
+                        //     },
+                        //     Element::Fragment(children) => {
+                        //         needs_render = true;
+                        //     }
+                        // }
+
+                        let child_render_data = child.render(scene, text_renderer, device, queue)?;
+                        all_dirty_regions.extend(child_render_data.dirty_regions);
+                        max_z_index = max_z_index.max(child_render_data.z_index);
+                    }
                 }
                 
                 Ok(RenderData {
@@ -265,6 +280,15 @@ impl Element {
     
     fn render_widget(&self, widget: &dyn Widget, scene: &mut Scene, text_renderer: &mut gui_render::primitives::TextRenderer, device: Option<&wgpu::Device>, queue: Option<&wgpu::Queue>) -> Result<RenderData, WidgetError> {
         // Get the base render data from the widget
+        let needs_render = widget.needs_render();
+
+        if !needs_render {
+            return Ok(RenderData {
+                dirty_regions: vec![],
+                z_index: 0,
+            });
+        }
+
         let render_data = widget.render()?;
         
         // Check the specific widget type and render appropriate primitives

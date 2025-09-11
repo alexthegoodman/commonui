@@ -4,6 +4,7 @@ use crate::element::Element;
 use crate::media_query::{MediaQuery, ResponsiveWidget};
 use crate::sizing::{Unit, Size};
 use gui_render::primitives::{Rectangle, Shadow};
+use gui_reactive::signal::Signal;
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::HashMap;
@@ -66,6 +67,8 @@ pub struct BoxWidget {
     pub dirty: bool,
     // Responsive styling
     responsive_styles: HashMap<MediaQuery, ResponsiveStyle>,
+    // Display control signal
+    display_signal: Option<Signal<bool>>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -135,6 +138,7 @@ impl BoxWidget {
             children: Vec::new(),
             dirty: true,
             responsive_styles: HashMap::new(),
+            display_signal: None,
         }
     }
 
@@ -243,6 +247,12 @@ impl BoxWidget {
         self
     }
 
+    pub fn with_display_signal(mut self, signal: Signal<bool>) -> Self {
+        self.display_signal = Some(signal);
+        self.dirty = true;
+        self
+    }
+
     pub fn set_position(&mut self, x: f32, y: f32) {
         if self.x != x || self.y != y {
             self.x = x;
@@ -326,6 +336,13 @@ impl Widget for BoxWidget {
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
+        // Don't handle events if display signal is false
+        if let Some(ref signal) = self.display_signal {
+            if !signal.get() {
+                return EventResult::Ignored;
+            }
+        }
+        
         for child in &mut self.children {
             match child.handle_event(event) {
                 EventResult::Handled => return EventResult::Handled,
@@ -337,6 +354,13 @@ impl Widget for BoxWidget {
     }
 
     fn needs_layout(&self) -> bool {
+        // Don't need layout if display signal is false
+        if let Some(ref signal) = self.display_signal {
+            if !signal.get() {
+                return false;
+            }
+        }
+        
         self.dirty || self.children.iter().any(|child| {
             match child {
                 Element::Widget(widget) => widget.needs_layout(),
@@ -347,6 +371,13 @@ impl Widget for BoxWidget {
     }
 
     fn needs_render(&self) -> bool {
+        // Don't need render if display signal is false
+        if let Some(ref signal) = self.display_signal {
+            if !signal.get() {
+                return false;
+            }
+        }
+        
         self.dirty || self.children.iter().any(|child| {
             match child {
                 Element::Widget(widget) => widget.needs_render(),
@@ -357,6 +388,16 @@ impl Widget for BoxWidget {
     }
 
     fn render(&self) -> Result<RenderData, WidgetError> {
+        // Don't render if display signal is false
+        if let Some(ref signal) = self.display_signal {
+            if !signal.get() {
+                return Ok(RenderData {
+                    dirty_regions: vec![],
+                    z_index: 0,
+                });
+            }
+        }
+        
         let dirty_region = DirtyRegion {
             x: self.x,
             y: self.y,
