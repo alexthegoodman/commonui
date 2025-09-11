@@ -2,11 +2,12 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use std::time::{Duration, Instant};
 use winit::{
-    event::{Event as WinitEvent, WindowEvent, DeviceEvent, DeviceId, ElementState},
+    event::{Event as WinitEvent, WindowEvent, DeviceEvent, DeviceId, ElementState, KeyEvent, Modifiers, MouseButton, MouseScrollDelta},
     event_loop::EventLoop,
     platform::scancode::PhysicalKeyExtScancode,
     window::{Window, WindowId, WindowBuilder},
     keyboard::{KeyCode, ModifiersState},
+    dpi::{LogicalSize, PhysicalSize},
 };
 use wgpu::{Device, Queue, Surface, Instance, Adapter, SurfaceConfiguration, TextureUsages, PresentMode, CommandEncoder};
 use gui_reactive::global_frame_scheduler;
@@ -46,6 +47,13 @@ pub struct App {
     on_resume_callback: Option<Box<dyn FnOnce(Arc<Device>, Arc<Queue>) + Send>>,
     // Custom render callback for external rendering (like stunts-native)
     custom_render_callback: Option<Box<dyn Fn(&wgpu::Device, &wgpu::Queue, &wgpu::TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>> + Send + Sync>>,
+    // Event handlers
+    cursor_moved_handler: Option<Box<dyn Fn(f64, f64, f64, f64)>>,
+    mouse_input_handler: Option<Box<dyn Fn(MouseButton, ElementState)>>,
+    window_resize_handler: Option<Box<dyn FnMut(PhysicalSize<u32>, LogicalSize<f64>)>>,
+    mouse_wheel_handler: Option<Box<dyn FnMut(MouseScrollDelta)>>,
+    modifiers_changed_handler: Option<Box<dyn FnMut(Modifiers)>>,
+    keyboard_input_handler: Option<Box<dyn FnMut(KeyEvent)>>,
 }
 
 impl App {
@@ -72,6 +80,12 @@ impl App {
             inner_size: [800, 600],
             on_resume_callback: None,
             custom_render_callback: None,
+            cursor_moved_handler: None,
+            mouse_input_handler: None,
+            window_resize_handler: None,
+            mouse_wheel_handler: None,
+            modifiers_changed_handler: None,
+            keyboard_input_handler: None,
         }
     }
 
@@ -103,6 +117,65 @@ impl App {
         F: Fn(&wgpu::Device, &wgpu::Queue, &wgpu::TextureView, u32, u32) -> Result<(), Box<dyn std::error::Error>> + Send + Sync + 'static,
     {
         self.custom_render_callback = Some(Box::new(callback));
+        self
+    }
+
+    pub fn with_cursor_moved<F>(mut self, handler: F) -> Self
+    where
+        F: Fn(f64, f64, f64, f64) + 'static,
+    {
+        self.cursor_moved_handler = Some(Box::new(handler));
+        self
+    }
+
+    pub fn with_mouse_input<F>(mut self, handler: F) -> Self
+    where
+        F: Fn(MouseButton, ElementState) + 'static,
+    {
+        self.mouse_input_handler = Some(Box::new(handler));
+        self
+    }
+
+    pub fn with_window_resize<F>(mut self, handler: F) -> Self
+    where
+        F: FnMut(PhysicalSize<u32>, LogicalSize<f64>) + 'static,
+    {
+        self.window_resize_handler = Some(Box::new(handler));
+        self
+    }
+
+    pub fn with_mouse_wheel<F>(mut self, handler: F) -> Self
+    where
+        F: FnMut(MouseScrollDelta) + 'static,
+    {
+        self.mouse_wheel_handler = Some(Box::new(handler));
+        self
+    }
+
+    pub fn with_modifiers_changed<F>(mut self, handler: F) -> Self
+    where
+        F: FnMut(Modifiers) + 'static,
+    {
+        self.modifiers_changed_handler = Some(Box::new(handler));
+        self
+    }
+
+    pub fn with_keyboard_input<F>(mut self, handler: F) -> Self
+    where
+        F: FnMut(KeyEvent) + 'static,
+    {
+        self.keyboard_input_handler = Some(Box::new(handler));
+        self
+    }
+
+    // Method to set up event handlers after GPU resources are available
+    pub fn setup_event_handlers_with_resources<F>(mut self, setup_fn: F) -> Self
+    where
+        F: FnOnce(&mut Self, Arc<Device>, Arc<Queue>) + 'static,
+    {
+        // Store the setup function and call it during GPU initialization
+        let setup_fn = Box::new(setup_fn);
+        // We'll need to modify the initialization flow to support this
         self
     }
 
@@ -277,6 +350,11 @@ impl App {
                 if let Err(e) = self.handle_resize(new_size.width, new_size.height) {
                     eprintln!("Failed to handle window resize: {}", e);
                 }
+                // Call custom window resize handler
+                if let Some(ref mut handler) = self.window_resize_handler {
+                    let logical_size = LogicalSize::new(new_size.width as f64, new_size.height as f64);
+                    handler(new_size, logical_size);
+                }
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let _ = self.internal_event_sender.send(InternalEvent::MousePositionUpdate([position.x, position.y]));
@@ -286,6 +364,11 @@ impl App {
                     state: ElementState::Released,
                     modifiers: ModifiersState::default(),
                 })));
+                // Call custom cursor moved handler
+                if let Some(ref handler) = self.cursor_moved_handler {
+                    // physical position (position.x, position.y) and logical position (same for now)
+                    handler(position.x, position.y, position.x, position.y);
+                }
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let _ = self.internal_event_sender.send(InternalEvent::GuiEvent(Event::Mouse(MouseEvent {
@@ -294,6 +377,10 @@ impl App {
                     state,
                     modifiers: ModifiersState::default(),
                 })));
+                // Call custom mouse input handler
+                if let Some(ref handler) = self.mouse_input_handler {
+                    handler(button, state);
+                }
             }
             WindowEvent::KeyboardInput { 
                 event,
@@ -373,6 +460,22 @@ impl App {
                         state: event.state,
                         modifiers: ModifiersState::default(),
                     })));
+                }
+                // Call custom keyboard input handler
+                if let Some(ref mut handler) = self.keyboard_input_handler {
+                    handler(event);
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                // Call custom mouse wheel handler
+                if let Some(ref mut handler) = self.mouse_wheel_handler {
+                    handler(delta);
+                }
+            }
+            WindowEvent::ModifiersChanged(modifiers) => {
+                // Call custom modifiers changed handler
+                if let Some(ref mut handler) = self.modifiers_changed_handler {
+                    handler(modifiers);
                 }
             }
             _ => {}
