@@ -420,6 +420,30 @@ impl Element {
             // Render PropertyInspectorWidget background
             let background_rect = inspector_widget.create_background_rectangle();
             background_rect.draw(scene);
+        } else if let Some(dropdown_widget) = widget.as_any().downcast_ref::<crate::widgets::dropdown::DropdownWidget>() {
+            // Render DropdownWidget background
+            let background_rect = dropdown_widget.create_background_rectangle();
+            background_rect.draw(scene);
+            
+            // Render dropdown arrow
+            let arrow_primitive = dropdown_widget.create_arrow_primitive();
+            arrow_primitive.draw(scene, text_renderer);
+            
+            // Render selected text
+            if let Some(text_primitive) = dropdown_widget.create_text_primitive() {
+                text_primitive.draw(scene, text_renderer);
+            }
+            
+            // Render dropdown options if open
+            if let Some(dropdown_background) = dropdown_widget.create_dropdown_background() {
+                dropdown_background.draw(scene);
+            }
+            
+            // Render option text
+            for (option_rect, option_text) in dropdown_widget.create_option_primitives() {
+                option_rect.draw(scene);
+                option_text.draw(scene, text_renderer);
+            }
         }
         
         Ok(render_data)
@@ -701,6 +725,9 @@ impl Element {
                 } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
                     canvas_widget.set_position(x, y);
                     canvas_widget.dirty = true;
+                } else if let Some(dropdown_widget) = widget.as_any_mut().downcast_mut::<crate::widgets::dropdown::DropdownWidget>() {
+                    dropdown_widget.set_position(x, y);
+                    dropdown_widget.dirty = true;
                 }
             },
             Element::Container { widget, .. } => {
@@ -728,6 +755,9 @@ impl Element {
                 } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
                     canvas_widget.set_position(x, y);
                     canvas_widget.dirty = true;
+                } else if let Some(dropdown_widget) = widget.as_any_mut().downcast_mut::<crate::widgets::dropdown::DropdownWidget>() {
+                    dropdown_widget.set_position(x, y);
+                    dropdown_widget.dirty = true;
                 }
             },
             Element::Fragment(_) => {
@@ -778,6 +808,9 @@ impl Element {
                 } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
                     canvas_widget.set_position(x, y);
                     canvas_widget.dirty = true;
+                } else if let Some(dropdown_widget) = widget.as_any_mut().downcast_mut::<crate::widgets::dropdown::DropdownWidget>() {
+                    dropdown_widget.set_position(x, y);
+                    dropdown_widget.dirty = true;
                 }
             },
             Element::Container { widget, .. } => {
@@ -820,6 +853,9 @@ impl Element {
                 } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
                     canvas_widget.set_position(x, y);
                     canvas_widget.dirty = true;
+                } else if let Some(dropdown_widget) = widget.as_any_mut().downcast_mut::<crate::widgets::dropdown::DropdownWidget>() {
+                    dropdown_widget.set_position(x, y);
+                    dropdown_widget.dirty = true;
                 }
             },
             Element::Fragment(_) => {

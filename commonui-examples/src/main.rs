@@ -95,6 +95,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
+    // Create a dropdown widget for theme selection
+    let theme_signal = Signal::new("default".to_string());
+    let theme_dropdown = dropdown()
+        .with_size(180.0, 32.0)
+        .with_placeholder("Select Theme")
+        .with_options(vec![
+            DropdownOption::new("default", "Default Theme"),
+            DropdownOption::new("dark", "Dark Theme"),
+            DropdownOption::new("light", "Light Theme"),
+            DropdownOption::new("colorful", "Colorful Theme"),
+            DropdownOption::new("minimal", "Minimal Theme"),
+        ])
+        .with_selected_value("default")
+        .on_change({
+            let theme_for_dropdown = theme_signal.clone();
+            let message_for_dropdown = message_signal.clone();
+            move |selected_value| {
+                theme_for_dropdown.set(selected_value.to_string());
+                match selected_value {
+                    "dark" => message_for_dropdown.set("🌙 Dark mode selected!".to_string()),
+                    "light" => message_for_dropdown.set("☀️ Light mode selected!".to_string()),
+                    "colorful" => message_for_dropdown.set("🌈 Colorful theme selected!".to_string()),
+                    "minimal" => message_for_dropdown.set("✨ Minimal theme selected!".to_string()),
+                    _ => message_for_dropdown.set("Default theme selected".to_string()),
+                }
+                println!("Theme changed to: {}", selected_value);
+            }
+        });
+
     // Create a slider for controlling the counter
     // let counter_for_slider = counter_signal.clone();
     // let subtitle_for_slider = subtitle_signal.clone();
@@ -253,6 +282,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(subtitle_text)))
         .with_child(Element::new_widget(Box::new(text_input)))
         .with_child(Element::new_widget(Box::new(number_input)))
+        .with_child(Element::new_widget(Box::new(theme_dropdown)))
         .with_child(Element::new_widget(Box::new(toggle_button)))
         .with_child(toggle_container.into_container_element())
         .with_child(normal_container.into_container_element()) // Normal container

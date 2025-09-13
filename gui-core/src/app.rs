@@ -554,7 +554,7 @@ impl App {
         
         // Render widgets to screen
         if let Err(e) = self.render_widgets() {
-            eprintln!("Render error: {:?}", e);
+            eprintln!("Render error 1: {:?}", e);
         }
         
         // Clear dirty widgets for next frame
@@ -602,7 +602,7 @@ impl App {
         
         // Render widgets to screen with editor state
         if let Err(e) = self.render_widgets_with_editor_state(editor_state, render_callback) {
-            eprintln!("Render error: {:?}", e);
+            eprintln!("Render error 2: {:?}", e);
         }
         
         // Clear dirty widgets for next frame
