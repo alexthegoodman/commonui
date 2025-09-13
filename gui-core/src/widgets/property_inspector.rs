@@ -138,8 +138,8 @@ pub struct PropertyInspectorWidget {
     row_height: f32,
     header_height: f32,
     on_property_change: Option<Box<dyn Fn(&str, &PropertyValue) + Send + Sync>>,
-    dirty: bool,
-    children: Vec<Element>,
+    pub dirty: bool,
+    pub children: Vec<Element>,
 }
 
 impl PropertyInspectorWidget {
@@ -208,6 +208,26 @@ impl PropertyInspectorWidget {
 
     pub fn get_children_mut(&mut self) -> &mut Vec<Element> {
         &mut self.children
+    }
+
+    pub fn get_position(&self) -> (f32, f32) {
+        (self.x, self.y)
+    }
+
+    pub fn get_size(&self) -> (f32, f32) {
+        (self.width, self.height)
+    }
+
+    pub fn get_padding(&self) -> &Padding {
+        &self.padding
+    }
+
+    pub fn get_header_height(&self) -> f32 {
+        self.header_height
+    }
+
+    pub fn get_row_height(&self) -> f32 {
+        self.row_height
     }
 
     pub fn update_property(&mut self, key: &str, value: PropertyValue) {
@@ -334,7 +354,7 @@ impl PropertyInspectorWidget {
             .with_size(self.width - self.padding.left - self.padding.right, self.row_height)
             .with_child(label_element)
             .with_child(input_element)
-            .into_row_element()
+            .into_container_element()
     }
 
     pub fn create_background_rectangle(&self) -> Rectangle {
@@ -438,6 +458,13 @@ pub fn property_inspector() -> PropertyInspectorWidget {
 impl PropertyInspectorWidget {
     pub fn into_property_inspector_element(self) -> Element {
         Element::new_widget(Box::new(self))
+    }
+
+    /// Convert the PropertyInspectorWidget to a Container element that can manage children
+    /// This allows the property inspector to be used like other layout widgets (row, column, etc.)
+    pub fn into_container_element(mut self) -> Element {
+        let children = std::mem::take(&mut self.children);
+        Element::new_container(Box::new(self), children)
     }
 }
 

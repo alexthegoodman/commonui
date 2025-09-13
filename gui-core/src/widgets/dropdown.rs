@@ -48,7 +48,7 @@ pub struct DropdownWidget {
     max_height: f32,
     shadow: Option<Shadow>,
     on_change: Option<Box<dyn Fn(&str) + Send + Sync>>,
-    dirty: bool,
+    pub dirty: bool,
 }
 
 impl DropdownWidget {
@@ -109,6 +109,14 @@ impl DropdownWidget {
         F: Fn(&str) + Send + Sync + 'static,
     {
         self.on_change = Some(Box::new(callback));
+        self
+    }
+
+    pub fn on_selection_changed<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(String) + Send + Sync + 'static,
+    {
+        self.on_change = Some(Box::new(move |value| callback(value.to_string())));
         self
     }
 

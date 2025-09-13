@@ -497,7 +497,7 @@ pub struct StackWidget {
     height: f32,
     shadow: Option<Shadow>,
     children: Vec<Element>,
-    dirty: bool,
+   pub dirty: bool,
 }
 
 impl StackWidget {

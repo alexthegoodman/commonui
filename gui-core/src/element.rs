@@ -93,6 +93,8 @@ impl Element {
                     Element::position_children_for_row_with_coords(row_widget, children, row_x, row_y, row_width, row_height);
                 } else if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
                     Element::position_children_for_box_static(box_widget, children);
+                } else if let Some(inspector_widget) = widget.as_any_mut().downcast_mut::<PropertyInspectorWidget>() {
+                    Element::position_children_for_property_inspector(inspector_widget);
                 }
                 
                 for child in children.iter_mut() {
@@ -422,15 +424,24 @@ impl Element {
         let (content_x, content_y, content_width, content_height) = box_widget.get_content_area();
         // println!("Box content area: x={}, y={}, w={}, h={}", content_x, content_y, content_width, content_height);
         
-        // First, position all children at the content area position
-        // TODO: this causes children of some widgets to render on top of each other (context_x, content_y)
-        // for example, children of PropertyInspectorWidget, so let's have them function like a column by default
+        // Position children in a column layout to prevent overlapping
+        // Calculate height per child based on available content height
+        let child_count = children.len() as f32;
+        let child_height = content_height / child_count;
+        let mut current_y = content_y;
+        
         for child in children.iter_mut() {
-            Element::position_child_element_static(child, content_x, content_y, content_width, content_height);
+            Element::position_child_element_static(child, content_x, current_y, content_width, child_height);
+            current_y += child_height;
         }
         
         // Then, let layout widgets handle their own children (after they've been positioned)
         for child in children.iter_mut() {
+            if let Element::Widget(widget) = child {
+                if let Some(inspector_widget) = widget.as_any_mut().downcast_mut::<PropertyInspectorWidget>() {
+                    Element::position_children_for_property_inspector(inspector_widget);
+                }
+            } 
             if let Element::Container { widget, children: child_children } = child {
                 // Get the widget's current position and size
                 if let Some(column_widget) = widget.as_any().downcast_ref::<ColumnWidget>() {
@@ -443,6 +454,8 @@ impl Element {
                     let (row_x, row_y) = row_widget.get_position();
                     let (row_width, row_height) = row_widget.get_size();
                     Element::position_children_for_row_with_coords(row_widget, child_children, row_x, row_y, row_width, row_height);
+                } else if let Some(inspector_widget) = widget.as_any_mut().downcast_mut::<PropertyInspectorWidget>() {
+                    Element::position_children_for_property_inspector(inspector_widget);
                 }
             }
         }
@@ -602,6 +615,48 @@ impl Element {
         }
     }
     
+    fn position_children_for_property_inspector(inspector_widget: &mut PropertyInspectorWidget) {
+        let (inspector_x, inspector_y) = inspector_widget.get_position();
+        let (inspector_width, _inspector_height) = inspector_widget.get_size();
+        let padding = inspector_widget.get_padding();
+        
+        // PropertyInspectorWidget manages its own internal layout
+        // We just need to position the children within the inspector's content area
+        let content_x = inspector_x + padding.left;
+        let mut current_y = inspector_y + padding.top;
+        
+        let header_height = inspector_widget.get_header_height();
+        let row_height = inspector_widget.get_row_height();
+        let content_width = inspector_width - padding.left - padding.right;
+
+        let children = &mut inspector_widget.children;
+
+        println!("position child prop insp almost....");
+
+        if children.is_empty() {
+            return;
+        }
+        
+        // Position children based on PropertyInspector's internal structure
+        // Headers and property rows are arranged vertically
+        println!("position child prop insp");
+        for child in children.iter_mut() {
+            Element::position_child_element_static(child, content_x, current_y, content_width, row_height);
+            
+            // Check if this child is a header or a property row and advance accordingly
+            match child {
+                Element::Widget(_) | Element::Container { .. } => {
+                    // For now, treat all children as rows with standard spacing
+                    current_y += row_height + 4.0;
+                },
+                Element::Fragment(_) => {
+                    // Fragments might contain multiple elements
+                    current_y += row_height + 4.0;
+                }
+            }
+        }
+    }
+    
     fn position_child_element_static(child: &mut Element, x: f32, y: f32, _width: f32, _height: f32) {
         // println!("Positioning child at x={}, y={}", x, y);
         match child {
@@ -611,23 +666,31 @@ impl Element {
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     // println!("  Positioning text widget at x={}, y={}", x, y);
                     text_widget.set_position(x, y);
+                    text_widget.dirty = true;
                 } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
                     // println!("  Positioning button widget at x={}, y={}", x, y);
                     button_widget.set_position(x, y);
+                    button_widget.dirty = true;
                 } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
                     // println!("  Positioning box widget at x={}, y={}", x, y);
                     box_widget.set_position(x, y);
+                    box_widget.dirty = true;
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     // println!("  Positioning column widget at x={}, y={}", x, y);
                     column_widget.set_position(x, y);
+                    column_widget.dirty = true;
                 } else if let Some(row_widget) = widget.as_any_mut().downcast_mut::<RowWidget>() {
                     row_widget.set_position(x, y);
+                    row_widget.dirty = true;
                 } else if let Some(input_widget) = widget.as_any_mut().downcast_mut::<InputWidget>() {
                     input_widget.set_position(x, y);
+                    input_widget.dirty = true;
                 } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
                     slider_widget.set_position(x, y);
+                    slider_widget.dirty = true;
                 } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
                     canvas_widget.set_position(x, y);
+                    canvas_widget.dirty = true;
                 }
             },
             Element::Container { widget, .. } => {
@@ -636,19 +699,25 @@ impl Element {
                 if let Some(text_widget) = widget.as_any_mut().downcast_mut::<TextWidget>() {
                     // println!("  Positioning text widget (container) at x={}, y={}", x, y);
                     text_widget.set_position(x, y);
+                    text_widget.dirty = true;
                 } else if let Some(button_widget) = widget.as_any_mut().downcast_mut::<ButtonWidget>() {
                     // println!("  Positioning button widget (container) at x={}, y={}", x, y);
                     button_widget.set_position(x, y);
+                    button_widget.dirty = true;
                 } else if let Some(box_widget) = widget.as_any_mut().downcast_mut::<BoxWidget>() {
                     // println!("  Positioning box widget (container) at x={}, y={}", x, y);
                     box_widget.set_position(x, y);
+                    box_widget.dirty = true;
                 } else if let Some(column_widget) = widget.as_any_mut().downcast_mut::<ColumnWidget>() {
                     // println!("  Positioning column widget (container) at x={}, y={}", x, y);
                     column_widget.set_position(x, y);
+                    column_widget.dirty = true;
                 } else if let Some(row_widget) = widget.as_any_mut().downcast_mut::<RowWidget>() {
                     row_widget.set_position(x, y);
+                    row_widget.dirty = true;
                 } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
                     canvas_widget.set_position(x, y);
+                    canvas_widget.dirty = true;
                 }
             },
             Element::Fragment(_) => {
@@ -692,10 +761,13 @@ impl Element {
                     row_widget.dirty = true;
                 } else if let Some(input_widget) = widget.as_any_mut().downcast_mut::<InputWidget>() {
                     input_widget.set_position(x, y);
+                    input_widget.dirty = true;
                 } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
                     slider_widget.set_position(x, y);
+                    slider_widget.dirty = true;
                 } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
                     canvas_widget.set_position(x, y);
+                    canvas_widget.dirty = true;
                 }
             },
             Element::Container { widget, .. } => {
@@ -731,10 +803,13 @@ impl Element {
                     row_widget.dirty = true;
                 } else if let Some(input_widget) = widget.as_any_mut().downcast_mut::<InputWidget>() {
                     input_widget.set_position(x, y);
+                    input_widget.dirty = true;
                 } else if let Some(slider_widget) = widget.as_any_mut().downcast_mut::<SliderWidget>() {
                     slider_widget.set_position(x, y);
+                    slider_widget.dirty = true;
                 } else if let Some(canvas_widget) = widget.as_any_mut().downcast_mut::<CanvasWidget>() {
                     canvas_widget.set_position(x, y);
+                    canvas_widget.dirty = true;
                 }
             },
             Element::Fragment(_) => {

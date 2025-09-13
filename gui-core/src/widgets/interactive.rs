@@ -376,7 +376,7 @@ pub struct InputWidget {
     shadow: Option<Shadow>,
     on_change: Option<Box<dyn Fn(&str) + Send + Sync>>,
     on_submit: Option<Box<dyn Fn(&str) + Send + Sync>>,
-    dirty: bool,
+    pub dirty: bool,
 }
 
 impl InputWidget {
@@ -753,7 +753,7 @@ pub struct SliderWidget {
     thumb_radius: f32,
     shadow: Option<Shadow>,
     on_change: Option<Box<dyn Fn(f32) + Send + Sync>>,
-    dirty: bool,
+    pub dirty: bool,
 }
 
 impl SliderWidget {

@@ -770,7 +770,7 @@ pub struct GridWidget {
     columns: usize,
     gap: f32,
     children: Vec<Element>,
-    dirty: bool,
+    pub dirty: bool,
 }
 
 impl GridWidget {

@@ -22,7 +22,7 @@ pub struct CanvasWidget {
     render_func: Option<CanvasRenderFunc>,
     direct_render_func: Option<CanvasDirectRenderFunc>,
     shared_encoder_render_func: Option<CanvasSharedEncoderRenderFunc>,
-    dirty: bool,
+    pub dirty: bool,
     z_index: i32,
 }
 
