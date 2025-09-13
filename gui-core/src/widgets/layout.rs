@@ -149,6 +149,14 @@ impl RowWidget {
         self.dirty = true;
     }
 
+    pub fn get_children_mut(&mut self) -> &mut Vec<Element> {
+        &mut self.children
+    }
+
+    pub fn get_children(&self) -> &Vec<Element> {
+        &self.children
+    }
+
     fn is_absolutely_positioned(child: &Element) -> bool {
         use gui_layout::Position;
         use crate::widgets::container::BoxWidget;
@@ -543,6 +551,14 @@ impl ColumnWidget {
     pub fn add_child(&mut self, child: Element) {
         self.children.push(child);
         self.dirty = true;
+    }
+
+    pub fn get_children_mut(&mut self) -> &mut Vec<Element> {
+        &mut self.children
+    }
+
+    pub fn get_children(&self) -> &Vec<Element> {
+        &self.children
     }
 
     pub fn layout_children(&mut self) {

@@ -202,6 +202,14 @@ impl PropertyInspectorWidget {
         }
     }
 
+    pub fn get_children(&self) -> &Vec<Element> {
+        &self.children
+    }
+
+    pub fn get_children_mut(&mut self) -> &mut Vec<Element> {
+        &mut self.children
+    }
+
     pub fn update_property(&mut self, key: &str, value: PropertyValue) {
         for group in &mut self.groups {
             for property in &mut group.properties {
@@ -498,20 +506,38 @@ impl IntoElement<TextWidget> for TextWidget {
     }
 }
 
+// impl IntoElement<RowWidget> for RowWidget {
+//     fn into_row_element(self) -> Element {
+//         Element::new_container(Box::new(self), Vec::new())
+//     }
+    
+//     fn into_dropdown_element(self) -> Element {
+//         Element::new_container(Box::new(self), Vec::new())
+//     }
+    
+//     fn into_input_element(self) -> Element {
+//         Element::new_container(Box::new(self), Vec::new())
+//     }
+    
+//     fn into_text_element(self) -> Element {
+//         Element::new_container(Box::new(self), Vec::new())
+//     }
+// }
+
 impl IntoElement<RowWidget> for RowWidget {
-    fn into_row_element(self) -> Element {
-        Element::new_container(Box::new(self), Vec::new())
+    fn into_text_element(self) -> Element {
+        Element::new_widget(Box::new(self))
     }
     
     fn into_dropdown_element(self) -> Element {
-        Element::new_container(Box::new(self), Vec::new())
+        Element::new_widget(Box::new(self))
     }
     
     fn into_input_element(self) -> Element {
-        Element::new_container(Box::new(self), Vec::new())
+        Element::new_widget(Box::new(self))
     }
     
-    fn into_text_element(self) -> Element {
-        Element::new_container(Box::new(self), Vec::new())
+    fn into_row_element(self) -> Element {
+        Element::new_widget(Box::new(self))
     }
 }

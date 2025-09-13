@@ -5,6 +5,7 @@ use crate::widgets::container::BoxWidget;
 use crate::widgets::interactive::{ButtonWidget, InputWidget, SliderWidget};
 use crate::widgets::layout::{ColumnWidget, RowWidget};
 use crate::widgets::canvas::CanvasWidget;
+use crate::widgets::property_inspector::PropertyInspectorWidget;
 
 use vello::Scene;
 
@@ -71,8 +72,11 @@ impl Element {
         match self {
             Element::Widget(widget) => {
                 // println!("widget update");
-                // widget should have its own positioning logic within?
-                widget.update(ctx)
+                widget.update(ctx)?;
+
+                // dont update children here, they are updated recursively in the widget.update() function
+                
+                Ok(())
             },
             Element::Container { widget, children } => {
                 widget.update(ctx)?;
@@ -224,7 +228,69 @@ impl Element {
     pub fn render(&self, scene: &mut Scene, text_renderer: &mut gui_render::primitives::TextRenderer, device: Option<&wgpu::Device>, queue: Option<&wgpu::Queue>) -> Result<RenderData, WidgetError> {
         match self {
             Element::Widget(widget) => {
-                self.render_widget(widget.as_ref(), scene, text_renderer, device, queue)
+                // First render the widget itself
+                let widget_render_data = self.render_widget(widget.as_ref(), scene, text_renderer, device, queue)?;
+                
+                // Check if this is a layout widget that has children and render them too
+                if let Some(column_widget) = widget.as_any().downcast_ref::<ColumnWidget>() {
+                    let mut all_dirty_regions = widget_render_data.dirty_regions;
+                    let mut max_z_index = widget_render_data.z_index;
+                    
+                    for child in column_widget.get_children() {
+                        let child_render_data = child.render(scene, text_renderer, device, queue)?;
+                        all_dirty_regions.extend(child_render_data.dirty_regions);
+                        max_z_index = max_z_index.max(child_render_data.z_index);
+                    }
+                    
+                    Ok(RenderData {
+                        dirty_regions: all_dirty_regions,
+                        z_index: max_z_index,
+                    })
+                } else if let Some(row_widget) = widget.as_any().downcast_ref::<RowWidget>() {
+                    let mut all_dirty_regions = widget_render_data.dirty_regions;
+                    let mut max_z_index = widget_render_data.z_index;
+                    
+                    for child in row_widget.get_children() {
+                        let child_render_data = child.render(scene, text_renderer, device, queue)?;
+                        all_dirty_regions.extend(child_render_data.dirty_regions);
+                        max_z_index = max_z_index.max(child_render_data.z_index);
+                    }
+                    
+                    Ok(RenderData {
+                        dirty_regions: all_dirty_regions,
+                        z_index: max_z_index,
+                    })
+                } else if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
+                    let mut all_dirty_regions = widget_render_data.dirty_regions;
+                    let mut max_z_index = widget_render_data.z_index;
+                    
+                    for child in box_widget.get_children() {
+                        let child_render_data = child.render(scene, text_renderer, device, queue)?;
+                        all_dirty_regions.extend(child_render_data.dirty_regions);
+                        max_z_index = max_z_index.max(child_render_data.z_index);
+                    }
+                    
+                    Ok(RenderData {
+                        dirty_regions: all_dirty_regions,
+                        z_index: max_z_index,
+                    })
+                } else if let Some(inspector_widget) = widget.as_any().downcast_ref::<PropertyInspectorWidget>() {
+                    let mut all_dirty_regions = widget_render_data.dirty_regions;
+                    let mut max_z_index = widget_render_data.z_index;
+                    
+                    for child in inspector_widget.get_children() {
+                        let child_render_data = child.render(scene, text_renderer, device, queue)?;
+                        all_dirty_regions.extend(child_render_data.dirty_regions);
+                        max_z_index = max_z_index.max(child_render_data.z_index);
+                    }
+                    
+                    Ok(RenderData {
+                        dirty_regions: all_dirty_regions,
+                        z_index: max_z_index,
+                    })
+                } else {
+                    Ok(widget_render_data)
+                }
             },
             Element::Container { widget, children } => {
                 // First render the container widget itself
@@ -338,6 +404,10 @@ impl Element {
                 canvas_widget.render_to_scene(scene, device, queue)?;
             }
             // Note: Direct render functions are handled separately in the App layer
+        } else if let Some(inspector_widget) = widget.as_any().downcast_ref::<PropertyInspectorWidget>() {
+            // Render PropertyInspectorWidget background
+            let background_rect = inspector_widget.create_background_rectangle();
+            background_rect.draw(scene);
         }
         
         Ok(render_data)
@@ -353,6 +423,8 @@ impl Element {
         // println!("Box content area: x={}, y={}, w={}, h={}", content_x, content_y, content_width, content_height);
         
         // First, position all children at the content area position
+        // TODO: this causes children of some widgets to render on top of each other (context_x, content_y)
+        // for example, children of PropertyInspectorWidget, so let's have them function like a column by default
         for child in children.iter_mut() {
             Element::position_child_element_static(child, content_x, content_y, content_width, content_height);
         }

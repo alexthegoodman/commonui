@@ -293,6 +293,14 @@ impl BoxWidget {
         self.dirty = true;
     }
 
+    pub fn get_children_mut(&mut self) -> &mut Vec<Element> {
+        &mut self.children
+    }
+
+    pub fn get_children(&self) -> &Vec<Element> {
+        &self.children
+    }
+
     pub fn into_container_element(mut self) -> crate::Element {
         let children = std::mem::take(&mut self.children);
         if children.is_empty() {
