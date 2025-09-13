@@ -192,6 +192,49 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .with_color(Color::rgba8(100, 50, 0, 255))
         )));
     
+    // Create an absolutely positioned floating container example
+    // This demonstrates the new .absolute() method for containers
+    let floating_container = container()
+        .absolute() // Position absolutely - won't affect layout flow
+        .with_position(50.0, 20.0) // Position at specific coordinates
+        .with_size(200.0, 80.0)
+        .with_background_color(Color::rgba8(255, 100, 100, 200)) // Semi-transparent red
+        .with_border_radius(10.0)
+        .with_padding(Padding::all(10.0))
+        .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 120))
+        .with_child(Element::new_widget(Box::new(
+            text_signal(Signal::new("I'm absolutely positioned!".to_string()))
+                .with_font_size(14.0)
+                .with_color(Color::rgba8(255, 255, 255, 255))
+        )));
+    
+    // Create another absolutely positioned container at a different location
+    let floating_info = container()
+        .absolute() // Position absolutely
+        .with_position(150.0, 120.0) // Different position
+        .with_size(180.0, 60.0)
+        .with_background_color(Color::rgba8(100, 200, 255, 180)) // Semi-transparent blue
+        .with_border_radius(8.0)
+        .with_padding(Padding::all(8.0))
+        .with_shadow(2.0, 2.0, 6.0, Color::rgba8(0, 0, 0, 100))
+        .with_child(Element::new_widget(Box::new(
+            text_signal(Signal::new("Fixed at (150, 120)".to_string()))
+                .with_font_size(12.0)
+                .with_color(Color::rgba8(255, 255, 255, 255))
+        )));
+    
+    // Create a normal container to demonstrate that absolute elements don't affect layout
+    let normal_container = container()
+        .with_size(350.0, 200.0)
+        .with_background_color(Color::rgba8(240, 240, 240, 255))
+        .with_border_radius(8.0)
+        .with_padding(Padding::all(15.0))
+        .with_child(Element::new_widget(Box::new(
+            text_signal(Signal::new("Normal layout container - absolute elements float above me!".to_string()))
+                .with_font_size(14.0)
+                .with_color(Color::rgba8(60, 60, 60, 255))
+        )));
+    
     // Create a container with percentage sizing (always visible for comparison)
     let perc_container = container()
         .with_width_perc(80.0) // 80% of available width
@@ -212,6 +255,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(number_input)))
         .with_child(Element::new_widget(Box::new(toggle_button)))
         .with_child(toggle_container.into_container_element())
+        .with_child(normal_container.into_container_element()) // Normal container
+        .with_child(floating_container.into_container_element()) // Absolute positioned container
+        .with_child(floating_info.into_container_element()) // Another absolute container
         .with_child(perc_container.into_container_element())
         .with_child(Element::new_widget(Box::new(font_size_button)))
         .with_child(Element::new_widget(Box::new(perc_button_1)))

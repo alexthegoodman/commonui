@@ -381,7 +381,16 @@ impl Element {
             return;
         }
 
-        let child_count = children.len() as f32;
+        // Count only normal flow children (skip absolutely positioned ones)
+        let normal_children_count = children.iter()
+            .filter(|child| !Element::is_absolutely_positioned(child))
+            .count();
+            
+        if normal_children_count == 0 {
+            return;
+        }
+
+        let child_count = normal_children_count as f32;
         let gap = column_widget.get_gap();
         let total_gap = gap * (child_count - 1.0);
         // println!("Column positioned at x={}, y={}, w={}, h={}", col_x, col_y, col_width, col_height);
@@ -409,26 +418,65 @@ impl Element {
         }
 
         let cross_alignment = column_widget.get_cross_axis_alignment();
-        let num_children = children.len();
+        let mut normal_child_index = 0;
         
-        for (i, child) in children.iter_mut().enumerate() {
+        for child in children.iter_mut() {
+            // Skip absolutely positioned children from normal layout flow
+            if Element::is_absolutely_positioned(child) {
+                continue;
+            }
+            
             // Position the child widget with proper alignment
             // println!("position_child_element_for_alignment {:?} {:?}", col_x, current_y);
             Element::position_child_element_for_alignment(child, col_x, current_y, col_width, child_height, cross_alignment);
             
             current_y += child_height;
-            if i < (num_children - 1) {
+            if normal_child_index < (normal_children_count - 1) {
                 current_y += gap;
             }
+            
+            normal_child_index += 1;
         }
     }
     
+    fn is_absolutely_positioned(child: &Element) -> bool {
+        use gui_layout::Position;
+        use crate::widgets::container::BoxWidget;
+        
+        match child {
+            Element::Widget(widget) => {
+                if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
+                    box_widget.get_position_type() == Position::Absolute
+                } else {
+                    false
+                }
+            },
+            Element::Container { widget, .. } => {
+                if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
+                    box_widget.get_position_type() == Position::Absolute
+                } else {
+                    false
+                }
+            },
+            Element::Fragment(_) => false,
+        }
+    }
+
     fn position_children_for_row_with_coords(row_widget: &RowWidget, children: &mut Vec<Element>, row_x: f32, row_y: f32, row_width: f32, row_height: f32) {
         if children.is_empty() {
             return;
         }
 
-        let child_count = children.len() as f32;
+        // Count only normal flow children (skip absolutely positioned ones)
+        let normal_children_count = children.iter()
+            .filter(|child| !Element::is_absolutely_positioned(child))
+            .count();
+            
+        if normal_children_count == 0 {
+            return;
+        }
+
+        let child_count = normal_children_count as f32;
         let gap = row_widget.get_gap();
         let total_gap = gap * (child_count - 1.0);
         let available_width = row_width - total_gap;
@@ -455,9 +503,14 @@ impl Element {
         }
 
         let cross_alignment = row_widget.get_cross_axis_alignment();
-        let num_children = children.len();
+        let mut normal_child_index = 0;
         
-        for (i, child) in children.iter_mut().enumerate() {
+        for child in children.iter_mut() {
+            // Skip absolutely positioned children from normal layout flow
+            if Element::is_absolutely_positioned(child) {
+                continue;
+            }
+            
             let child_y = match cross_alignment {
                 crate::widgets::layout::CrossAxisAlignment::Start => row_y,
                 crate::widgets::layout::CrossAxisAlignment::End => row_y + row_height,
@@ -465,13 +518,15 @@ impl Element {
                 crate::widgets::layout::CrossAxisAlignment::Stretch => row_y,
             };
 
-            // Position the child widget
+            // Position the child widget in normal flow
             Element::position_child_element_static(child, current_x, child_y, child_width, row_height);
             
             current_x += child_width;
-            if i < (num_children - 1) {
+            if normal_child_index < (normal_children_count - 1) {
                 current_x += gap;
             }
+            
+            normal_child_index += 1;
         }
     }
     

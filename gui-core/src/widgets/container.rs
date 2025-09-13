@@ -9,6 +9,7 @@ use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::HashMap;
 use vello::peniko::{Color, Gradient, Brush};
+use gui_layout::Position;
 
 static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(1000);
 
@@ -69,6 +70,8 @@ pub struct BoxWidget {
     responsive_styles: HashMap<MediaQuery, ResponsiveStyle>,
     // Display control signal
     display_signal: Option<Signal<bool>>,
+    // Position type for layout (relative, absolute, etc.)
+    position: Position,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -139,6 +142,7 @@ impl BoxWidget {
             dirty: true,
             responsive_styles: HashMap::new(),
             display_signal: None,
+            position: Position::Relative,
         }
     }
 
@@ -251,6 +255,23 @@ impl BoxWidget {
         self.display_signal = Some(signal);
         self.dirty = true;
         self
+    }
+
+    pub fn absolute(mut self) -> Self {
+        self.position = Position::Absolute;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_position(mut self, x: f32, y: f32) -> Self {
+        self.x = x;
+        self.y = y;
+        self.dirty = true;
+        self
+    }
+
+    pub fn get_position_type(&self) -> Position {
+        self.position
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
