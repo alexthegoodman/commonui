@@ -115,6 +115,16 @@ impl Element {
         match self {
             Element::Widget(widget) => widget.handle_event(event),
             Element::Container { widget, children } => {
+                // Special handling for containers with display control
+                use crate::widgets::container::BoxWidget;
+                if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
+                    if !box_widget.is_visible() {
+                        // Container is hidden, don't process children
+                        return EventResult::Ignored;
+                    }
+                }
+                
+                // For normal containers, process children first, then container
                 for child in children.iter_mut() {
                     match child.handle_event(event) {
                         EventResult::Handled => return EventResult::Handled,

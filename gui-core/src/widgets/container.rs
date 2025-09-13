@@ -274,6 +274,14 @@ impl BoxWidget {
         self.position
     }
 
+    pub fn is_visible(&self) -> bool {
+        if let Some(ref signal) = self.display_signal {
+            signal.get()
+        } else {
+            true
+        }
+    }
+
     pub fn set_position(&mut self, x: f32, y: f32) {
         if self.x != x || self.y != y {
             self.x = x;
@@ -365,20 +373,8 @@ impl Widget for BoxWidget {
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
-        // Don't handle events if display signal is false
-        if let Some(ref signal) = self.display_signal {
-            if !signal.get() {
-                return EventResult::Ignored;
-            }
-        }
-        
-        for child in &mut self.children {
-            match child.handle_event(event) {
-                EventResult::Handled => return EventResult::Handled,
-                EventResult::Propagate => continue,
-                EventResult::Ignored => continue,
-            }
-        }
+        // BoxWidget doesn't handle events directly, it just allows propagation to children
+        // The Element::Container will handle children event processing and visibility checks
         EventResult::Ignored
     }
 
