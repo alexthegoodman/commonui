@@ -6,6 +6,7 @@ use gui_reactive::Signal;
 use gui_render::primitives::{Rectangle, Shadow};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
 use gui_render::primitives::Text;
 use vello::peniko::Color;
 use super::container::Background;
@@ -26,7 +27,7 @@ pub struct ButtonWidget {
     y: f32,
     width: f32,
     height: f32,
-    label: String,
+    label: Signal<String>,
     state: ButtonState,
     background: Background,
     hover_background: Background,
@@ -37,6 +38,8 @@ pub struct ButtonWidget {
     shadow: Option<Shadow>,
     on_click: Option<Box<dyn Fn() + Send + Sync>>,
     pub dirty: bool,
+    // Shared dirty flag that reactive signals can set
+    reactive_dirty: Arc<RwLock<bool>>,
 }
 
 impl ButtonWidget {
@@ -47,7 +50,7 @@ impl ButtonWidget {
             y: 0.0,
             width: 120.0,
             height: 40.0,
-            label: label.into(),
+            label: Signal::new(label.into()),
             state: ButtonState::Normal,
             background: Background::Color(Color::rgba8(100, 150, 255, 255)), // Blue
             hover_background: Background::Color(Color::rgba8(120, 170, 255, 255)),      // Lighter blue
@@ -58,6 +61,7 @@ impl ButtonWidget {
             shadow: None,
             on_click: None,
             dirty: true,
+            reactive_dirty: Arc::new(RwLock::new(false)),
         }
     }
 
@@ -191,6 +195,12 @@ impl ButtonWidget {
         self.dirty = true;
     }
 
+    pub fn disabled(mut self) -> Self {
+        self.state = ButtonState::Disabled;
+        self.dirty = true;
+        self
+    }
+
     pub fn is_point_inside(&self, x: f32, y: f32) -> bool {
         x >= self.x && x <= self.x + self.width &&
         y >= self.y && y <= self.y + self.height
@@ -227,16 +237,17 @@ impl ButtonWidget {
     }
     
     pub fn create_text_primitive(&self) -> Option<gui_render::primitives::Text> {
-        if !self.label.is_empty() {
+        let label_text = self.label.get();
+        if !label_text.is_empty() {
             // Position text in the center of the button
-            let text_x = self.x + (self.width / 2.0) - (self.label.len() as f32 * self.font_size * 0.3); // Rough centering
+            let text_x = self.x + (self.width / 2.0) - (label_text.len() as f32 * self.font_size * 0.3); // Rough centering
             // Proper vertical centering: position at center and adjust by font baseline offset
             let text_y = self.y + (self.height / 2.0) + (self.font_size * 0.25);
             
             // Use white text color for good contrast against button background
             let text_color = Color::rgba8(255, 255, 255, 255);
             
-            Some(Text::new(text_x, text_y, self.label.clone(), text_color, self.font_size))
+            Some(Text::new(text_x, text_y, label_text, text_color, self.font_size))
         } else {
             None
         }
@@ -246,6 +257,15 @@ impl ButtonWidget {
 impl Widget for ButtonWidget {
     fn mount(&mut self) -> Result<(), WidgetError> {
         self.dirty = true;
+        
+        // Setup reactive bindings for label changes
+        let reactive_dirty = self.reactive_dirty.clone();
+        self.label.subscribe_fn(move |_| {
+            if let Ok(mut dirty) = reactive_dirty.write() {
+                *dirty = true;
+            }
+        });
+        
         Ok(())
     }
 
@@ -254,6 +274,14 @@ impl Widget for ButtonWidget {
     }
 
     fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        // Check if reactive signals have changed
+        if let Ok(mut reactive_dirty) = self.reactive_dirty.write() {
+            if *reactive_dirty {
+                *reactive_dirty = false;
+                self.dirty = true;
+            }
+        }
+        
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
@@ -1029,6 +1057,13 @@ impl Widget for SliderWidget {
 // Convenience functions for creating interactive widgets
 pub fn button(label: impl Into<String>) -> ButtonWidget {
     ButtonWidget::new(label)
+}
+
+pub fn button_signal(label_signal: Signal<String>) -> ButtonWidget {
+    let mut widget = ButtonWidget::new(label_signal.get());
+    widget.label = label_signal;
+    widget.dirty = true;
+    widget
 }
 
 pub fn input() -> InputWidget {
