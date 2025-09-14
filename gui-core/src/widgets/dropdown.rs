@@ -36,6 +36,7 @@ pub struct DropdownWidget {
     height: f32,
     selected_value: Signal<String>,
     options: Vec<DropdownOption>,
+    options_signal: Option<Signal<Vec<DropdownOption>>>,
     is_open: bool,
     is_hovering: bool,
     background: Background,
@@ -61,6 +62,7 @@ impl DropdownWidget {
             height: 32.0,
             selected_value: Signal::new(String::new()),
             options: Vec::new(),
+            options_signal: None,
             is_open: false,
             is_hovering: false,
             background: Background::Color(Color::rgba8(255, 255, 255, 255)),
@@ -77,6 +79,12 @@ impl DropdownWidget {
         }
     }
 
+    pub fn with_font_size(mut self, font_size: f32) -> Self {
+        self.font_size = font_size;
+        self.dirty = true;
+        self
+    }
+
     pub fn with_size(mut self, width: f32, height: f32) -> Self {
         self.width = width;
         self.height = height;
@@ -86,6 +94,12 @@ impl DropdownWidget {
 
     pub fn with_options(mut self, options: Vec<DropdownOption>) -> Self {
         self.options = options;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_options_signal(mut self, options_signal: Signal<Vec<DropdownOption>>) -> Self {
+        self.options_signal = Some(options_signal);
         self.dirty = true;
         self
     }
@@ -128,6 +142,14 @@ impl DropdownWidget {
         }
     }
 
+    fn get_effective_options(&self) -> Vec<DropdownOption> {
+        if let Some(signal) = &self.options_signal {
+            signal.get()
+        } else {
+            self.options.clone()
+        }
+    }
+
     pub fn is_point_inside(&self, x: f32, y: f32) -> bool {
         x >= self.x && x <= self.x + self.width &&
         y >= self.y && y <= self.y + self.height
@@ -139,25 +161,25 @@ impl DropdownWidget {
         }
         
         let dropdown_y = self.y + self.height;
-        let dropdown_height = (self.options.len() as f32 * self.height).min(self.max_height);
+        let dropdown_height = (self.get_effective_options().len() as f32 * self.height).min(self.max_height);
         
         x >= self.x && x <= self.x + self.width &&
         y >= dropdown_y && y <= dropdown_y + dropdown_height
     }
 
-    pub fn get_selected_option(&self) -> Option<&DropdownOption> {
+    pub fn get_selected_option(&self) -> Option<DropdownOption> {
         let selected = self.selected_value.get();
-        self.options.iter().find(|opt| opt.value == selected)
+        self.get_effective_options().into_iter().find(|opt| opt.value == selected)
     }
 
-    pub fn get_option_at_position(&self, x: f32, y: f32) -> Option<&DropdownOption> {
+    pub fn get_option_at_position(&self, x: f32, y: f32) -> Option<DropdownOption> {
         if !self.is_point_in_dropdown(x, y) {
             return None;
         }
         
         let dropdown_y = self.y + self.height;
         let option_index = ((y - dropdown_y) / self.height) as usize;
-        self.options.get(option_index)
+        self.get_effective_options().get(option_index).cloned()
     }
 
     pub fn create_background_rectangle(&self) -> Rectangle {
@@ -178,7 +200,7 @@ impl DropdownWidget {
         }
         
         let dropdown_y = self.y + self.height;
-        let dropdown_height = (self.options.len() as f32 * self.height).min(self.max_height);
+        let dropdown_height = (self.get_effective_options().len() as f32 * self.height).min(self.max_height);
         
         Some(Rectangle::new_with_brush(
             self.x, 
@@ -193,9 +215,9 @@ impl DropdownWidget {
 
     pub fn create_text_primitive(&self) -> Option<Text> {
         let display_text = if let Some(option) = self.get_selected_option() {
-            &option.label
+            option.label
         } else {
-            &self.selected_value.get()
+            self.selected_value.get()
         };
         
         if !display_text.is_empty() {
@@ -225,7 +247,7 @@ impl DropdownWidget {
         let mut primitives = Vec::new();
         let dropdown_y = self.y + self.height;
         
-        for (i, option) in self.options.iter().enumerate() {
+        for (i, option) in self.get_effective_options().iter().enumerate() {
             let option_y = dropdown_y + (i as f32 * self.height);
             let option_rect = Rectangle::new(
                 self.x, 
@@ -349,7 +371,7 @@ impl Widget for DropdownWidget {
         
         // Add dropdown area if open
         if self.is_open {
-            let dropdown_height = (self.options.len() as f32 * self.height).min(self.max_height);
+            let dropdown_height = (self.get_effective_options().len() as f32 * self.height).min(self.max_height);
             dirty_regions.push(DirtyRegion {
                 x: self.x,
                 y: self.y + self.height,
