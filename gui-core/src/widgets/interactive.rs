@@ -542,7 +542,7 @@ impl InputWidget {
 
     pub fn insert_char(&mut self, ch: char) {
         let mut current_text = self.text.get();
-        println!("insert char {:?}", ch.clone());
+        // println!("insert char {:?}", ch.clone());
         current_text.insert(self.cursor_position, ch);
         self.cursor_position += 1;
         self.text.set(current_text.clone());
