@@ -59,6 +59,7 @@ pub struct MouseEvent {
 #[derive(Debug, Clone)]
 pub struct KeyboardEvent {
     pub key_code: Option<KeyCode>,
+    pub character: Option<char>,
     pub scancode: u32,
     pub state: ElementState,
     pub modifiers: ModifiersState,

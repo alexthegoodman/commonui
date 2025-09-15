@@ -54,6 +54,7 @@ pub struct App {
     mouse_wheel_handler: Option<Box<dyn FnMut(MouseScrollDelta)>>,
     modifiers_changed_handler: Option<Box<dyn FnMut(Modifiers)>>,
     keyboard_input_handler: Option<Box<dyn FnMut(KeyEvent)>>,
+    current_modifiers: ModifiersState,
 }
 
 impl App {
@@ -86,6 +87,7 @@ impl App {
             mouse_wheel_handler: None,
             modifiers_changed_handler: None,
             keyboard_input_handler: None,
+            current_modifiers: ModifiersState::default(),
         }
     }
 
@@ -375,7 +377,7 @@ impl App {
                     position: Point::new(self.last_mouse_position[0], self.last_mouse_position[1]),
                     button: Some(button),
                     state,
-                    modifiers: ModifiersState::default(),
+                    modifiers: self.current_modifiers,
                 })));
                 // Call custom mouse input handler
                 if let Some(ref handler) = self.mouse_input_handler {
@@ -387,8 +389,39 @@ impl App {
                 ..
             } => {
                 if let Some(keycode) = event.physical_key.to_scancode() {
-                    // Convert winit PhysicalKey to winit KeyCode if possible
-                    let key_code = match event.logical_key {
+                    // Extract character directly from logical_key
+                    // println!("Logical key: {:?}", event.logical_key);
+                    let character = match &event.logical_key {
+                        winit::keyboard::Key::Character(s) => {
+                            // Accept any printable character, even if it's multi-byte
+                            let chars: Vec<char> = s.chars().collect();
+                            // println!("Character string: {:?}, chars: {:?}", s, chars);
+                            if chars.len() == 1 && (chars[0].is_ascii_graphic() || chars[0] == ' ') {
+                                Some(chars[0])
+                            } else {
+                                // For now, take the first character if it's printable
+                                chars.first().copied().filter(|c| c.is_ascii_graphic() || *c == ' ')
+                            }
+                        },
+                        winit::keyboard::Key::Named(named_key) => {
+                            use winit::keyboard::NamedKey;
+                            // println!("Named key: {:?}", named_key);
+                            match named_key {
+                                NamedKey::Space => Some(' '),
+                                // NamedKey::Tab => Some('\t'), // would confused people who cant see it when tabbing between inputs
+                                // NamedKey::Enter => Some('\n'), // also confusing
+                                _ => None,
+                            }
+                        },
+                        _ => {
+                            // println!("Other key type: {:?}", event.logical_key);
+                            None
+                        },
+                    };
+                    // println!("Final character: {:?}", character);
+                    
+                    // Convert winit PhysicalKey to winit KeyCode if possible (for non-character keys)
+                    let key_code = match &event.logical_key {
                         winit::keyboard::Key::Named(named_key) => {
                             use winit::keyboard::NamedKey;
                             match named_key {
@@ -456,9 +489,10 @@ impl App {
                     
                     let _ = self.internal_event_sender.send(InternalEvent::GuiEvent(Event::Keyboard(KeyboardEvent {
                         key_code,
+                        character,
                         scancode: keycode,
                         state: event.state,
-                        modifiers: ModifiersState::default(),
+                        modifiers: self.current_modifiers,
                     })));
                 }
                 // Call custom keyboard input handler
@@ -473,6 +507,8 @@ impl App {
                 }
             }
             WindowEvent::ModifiersChanged(modifiers) => {
+                // Update current modifier state
+                self.current_modifiers = modifiers.state();
                 // Call custom modifiers changed handler
                 if let Some(ref mut handler) = self.modifiers_changed_handler {
                     handler(modifiers);

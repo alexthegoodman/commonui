@@ -542,6 +542,7 @@ impl InputWidget {
 
     pub fn insert_char(&mut self, ch: char) {
         let mut current_text = self.text.get();
+        println!("insert char {:?}", ch.clone());
         current_text.insert(self.cursor_position, ch);
         self.cursor_position += 1;
         self.text.set(current_text.clone());
@@ -669,6 +670,13 @@ impl Widget for InputWidget {
                 }
             },
             Event::Keyboard(keyboard_event) if keyboard_event.state == ElementState::Pressed && self.is_focused => {
+                // Use the character directly from the keyboard event
+                // println!("get here? {:?}", keyboard_event.character);
+                if let Some(char) = keyboard_event.character {
+                    self.insert_char(char);
+                    return EventResult::Handled;
+                }
+
                 if let Some(key_code) = keyboard_event.key_code {
                     use winit::keyboard::KeyCode;
                     match key_code {
@@ -711,9 +719,11 @@ impl Widget for InputWidget {
                             EventResult::Handled
                         },
                         // Handle character input
-                        key_code => {
-                            if let Some(char) = keycode_to_char(key_code, keyboard_event.modifiers.shift_key()) {
-                                self.insert_char(char);
+                        _ => {
+                            // Use the character directly from the keyboard event
+                            // println!("get here? {:?}", keyboard_event.character);
+                            if let Some(char) = keyboard_event.character {
+                                // self.insert_char(char);
                                 EventResult::Handled
                             } else {
                                 EventResult::Ignored
@@ -1074,66 +1084,3 @@ pub fn slider(min: f32, max: f32) -> SliderWidget {
     SliderWidget::new(min, max)
 }
 
-/// Convert a KeyCode to a character, considering shift state
-fn keycode_to_char(key_code: winit::keyboard::KeyCode, shift: bool) -> Option<char> {
-    use winit::keyboard::KeyCode;
-    
-    match key_code {
-        // Letters
-        KeyCode::KeyA => Some(if shift { 'A' } else { 'a' }),
-        KeyCode::KeyB => Some(if shift { 'B' } else { 'b' }),
-        KeyCode::KeyC => Some(if shift { 'C' } else { 'c' }),
-        KeyCode::KeyD => Some(if shift { 'D' } else { 'd' }),
-        KeyCode::KeyE => Some(if shift { 'E' } else { 'e' }),
-        KeyCode::KeyF => Some(if shift { 'F' } else { 'f' }),
-        KeyCode::KeyG => Some(if shift { 'G' } else { 'g' }),
-        KeyCode::KeyH => Some(if shift { 'H' } else { 'h' }),
-        KeyCode::KeyI => Some(if shift { 'I' } else { 'i' }),
-        KeyCode::KeyJ => Some(if shift { 'J' } else { 'j' }),
-        KeyCode::KeyK => Some(if shift { 'K' } else { 'k' }),
-        KeyCode::KeyL => Some(if shift { 'L' } else { 'l' }),
-        KeyCode::KeyM => Some(if shift { 'M' } else { 'm' }),
-        KeyCode::KeyN => Some(if shift { 'N' } else { 'n' }),
-        KeyCode::KeyO => Some(if shift { 'O' } else { 'o' }),
-        KeyCode::KeyP => Some(if shift { 'P' } else { 'p' }),
-        KeyCode::KeyQ => Some(if shift { 'Q' } else { 'q' }),
-        KeyCode::KeyR => Some(if shift { 'R' } else { 'r' }),
-        KeyCode::KeyS => Some(if shift { 'S' } else { 's' }),
-        KeyCode::KeyT => Some(if shift { 'T' } else { 't' }),
-        KeyCode::KeyU => Some(if shift { 'U' } else { 'u' }),
-        KeyCode::KeyV => Some(if shift { 'V' } else { 'v' }),
-        KeyCode::KeyW => Some(if shift { 'W' } else { 'w' }),
-        KeyCode::KeyX => Some(if shift { 'X' } else { 'x' }),
-        KeyCode::KeyY => Some(if shift { 'Y' } else { 'y' }),
-        KeyCode::KeyZ => Some(if shift { 'Z' } else { 'z' }),
-        
-        // Numbers
-        KeyCode::Digit0 => Some(if shift { ')' } else { '0' }),
-        KeyCode::Digit1 => Some(if shift { '!' } else { '1' }),
-        KeyCode::Digit2 => Some(if shift { '@' } else { '2' }),
-        KeyCode::Digit3 => Some(if shift { '#' } else { '3' }),
-        KeyCode::Digit4 => Some(if shift { '$' } else { '4' }),
-        KeyCode::Digit5 => Some(if shift { '%' } else { '5' }),
-        KeyCode::Digit6 => Some(if shift { '^' } else { '6' }),
-        KeyCode::Digit7 => Some(if shift { '&' } else { '7' }),
-        KeyCode::Digit8 => Some(if shift { '*' } else { '8' }),
-        KeyCode::Digit9 => Some(if shift { '(' } else { '9' }),
-        
-        // Special characters
-        KeyCode::Space => Some(' '),
-        KeyCode::Minus => Some(if shift { '_' } else { '-' }),
-        KeyCode::Equal => Some(if shift { '+' } else { '=' }),
-        KeyCode::BracketLeft => Some(if shift { '{' } else { '[' }),
-        KeyCode::BracketRight => Some(if shift { '}' } else { ']' }),
-        KeyCode::Backslash => Some(if shift { '|' } else { '\\' }),
-        KeyCode::Semicolon => Some(if shift { ':' } else { ';' }),
-        KeyCode::Quote => Some(if shift { '"' } else { '\'' }),
-        KeyCode::Comma => Some(if shift { '<' } else { ',' }),
-        KeyCode::Period => Some(if shift { '>' } else { '.' }),
-        KeyCode::Slash => Some(if shift { '?' } else { '/' }),
-        KeyCode::Backquote => Some(if shift { '~' } else { '`' }),
-        
-        // Non-printable characters
-        _ => None,
-    }
-}
