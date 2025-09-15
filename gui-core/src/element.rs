@@ -455,6 +455,11 @@ impl Element {
             return;
         }
 
+        // Don't position children if the box widget is not visible
+        if !box_widget.is_visible() {
+            return;
+        }
+
         let (content_x, content_y, content_width, content_height) = box_widget.get_content_area();
         // println!("Box content area: x={}, y={}, w={}, h={}", content_x, content_y, content_width, content_height);
         
@@ -500,9 +505,9 @@ impl Element {
             return;
         }
 
-        // Count only normal flow children (skip absolutely positioned ones)
+        // Count only normal flow children (skip absolutely positioned ones and hidden children)
         let normal_children_count = children.iter()
-            .filter(|child| !Element::is_absolutely_positioned(child))
+            .filter(|child| !Element::is_absolutely_positioned(child) && Element::is_child_visible(child))
             .count();
             
         if normal_children_count == 0 {
@@ -540,8 +545,8 @@ impl Element {
         let mut normal_child_index = 0;
         
         for child in children.iter_mut() {
-            // Skip absolutely positioned children from normal layout flow
-            if Element::is_absolutely_positioned(child) {
+            // Skip absolutely positioned children and hidden children from normal layout flow
+            if Element::is_absolutely_positioned(child) || !Element::is_child_visible(child) {
                 continue;
             }
             
@@ -581,14 +586,36 @@ impl Element {
         }
     }
 
+    fn is_child_visible(child: &Element) -> bool {
+        use crate::widgets::container::BoxWidget;
+        
+        match child {
+            Element::Widget(widget) => {
+                if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
+                    box_widget.is_visible()
+                } else {
+                    true // Widgets without display signals are visible by default
+                }
+            },
+            Element::Container { widget, .. } => {
+                if let Some(box_widget) = widget.as_any().downcast_ref::<BoxWidget>() {
+                    box_widget.is_visible()
+                } else {
+                    true // Containers without display signals are visible by default
+                }
+            },
+            Element::Fragment(_) => true, // Fragments are always visible
+        }
+    }
+
     fn position_children_for_row_with_coords(row_widget: &RowWidget, children: &mut Vec<Element>, row_x: f32, row_y: f32, row_width: f32, row_height: f32) {
         if children.is_empty() {
             return;
         }
 
-        // Count only normal flow children (skip absolutely positioned ones)
+        // Count only normal flow children (skip absolutely positioned ones and hidden children)
         let normal_children_count = children.iter()
-            .filter(|child| !Element::is_absolutely_positioned(child))
+            .filter(|child| !Element::is_absolutely_positioned(child) && Element::is_child_visible(child))
             .count();
             
         if normal_children_count == 0 {
@@ -625,8 +652,8 @@ impl Element {
         let mut normal_child_index = 0;
         
         for child in children.iter_mut() {
-            // Skip absolutely positioned children from normal layout flow
-            if Element::is_absolutely_positioned(child) {
+            // Skip absolutely positioned children and hidden children from normal layout flow
+            if Element::is_absolutely_positioned(child) || !Element::is_child_visible(child) {
                 continue;
             }
             
