@@ -4,6 +4,8 @@ use crate::element::Element;
 use crate::sizing::{Unit, Size};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
+use gui_reactive::Signal;
+use std::sync::{Arc, RwLock};
 
 static WIDGET_ID_COUNTER: AtomicU64 = AtomicU64::new(2000);
 
@@ -36,6 +38,7 @@ pub struct RowWidget {
     gap: f32,
     children: Vec<Element>,
     pub dirty: bool,
+    reactive_children: Arc<RwLock<Vec<Element>>>,
 }
 
 impl RowWidget {
@@ -51,6 +54,7 @@ impl RowWidget {
             gap: 0.0,
             children: Vec::new(),
             dirty: true,
+            reactive_children: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
@@ -339,6 +343,31 @@ impl RowWidget {
         let children = std::mem::take(&mut self.children);
         crate::Element::new_container(Box::new(self), children)
     }
+
+    pub fn with_reactive_children<T, F>(mut self, signal: Signal<T>, builder: F) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+        F: Fn(&T) -> Vec<Element> + Send + Sync + 'static,
+    {
+        // Build initial children
+        let initial_value = signal.get();
+        let initial_children = builder(&initial_value);
+        self.children = initial_children;
+
+
+        // Subscribe to signal changes
+        let reactive_children_ref = Arc::clone(&self.reactive_children);
+        let builder_arc = Arc::new(builder);
+        signal.subscribe_fn(move |new_value| {
+            let new_children = builder_arc(new_value);
+            if let Ok(mut reactive_children) = reactive_children_ref.write() {
+                *reactive_children = new_children;
+            }
+        });
+
+        self.dirty = true;
+        self
+    }
 }
 
 impl Widget for RowWidget {
@@ -358,16 +387,36 @@ impl Widget for RowWidget {
         Ok(())
     }
 
+    // fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    //     if self.dirty {
+    //         ctx.mark_dirty(self.id);
+    //     }
+    //     self.layout_children();
+
+    //     for child in &mut self.children {
+    //         child.update(ctx)?;
+    //     }
+        
+    //     Ok(())
+    // }
+
     fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        // Check if reactive children have updated
+        if let Ok(mut reactive_children) = self.reactive_children.write() {
+            if !reactive_children.is_empty() {
+                self.children = std::mem::take(&mut *reactive_children);
+                self.dirty = true;
+            }
+        }
+
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
         self.layout_children();
-
         for child in &mut self.children {
             child.update(ctx)?;
         }
-        
+
         Ok(())
     }
 
@@ -440,6 +489,7 @@ pub struct ColumnWidget {
     gap: f32,
     children: Vec<Element>,
     pub dirty: bool,
+    reactive_children: Arc<RwLock<Vec<Element>>>,
 }
 
 impl ColumnWidget {
@@ -455,6 +505,7 @@ impl ColumnWidget {
             gap: 0.0,
             children: Vec::new(),
             dirty: true,
+            reactive_children: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
@@ -671,6 +722,31 @@ impl ColumnWidget {
         let children = std::mem::take(&mut self.children);
         crate::Element::new_container(Box::new(self), children)
     }
+
+    pub fn with_reactive_children<T, F>(mut self, signal: Signal<T>, builder: F) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+        F: Fn(&T) -> Vec<Element> + Send + Sync + 'static,
+    {
+        // Build initial children
+        let initial_value = signal.get();
+        let initial_children = builder(&initial_value);
+        self.children = initial_children;
+
+
+        // Subscribe to signal changes
+        let reactive_children_ref = Arc::clone(&self.reactive_children);
+        let builder_arc = Arc::new(builder);
+        signal.subscribe_fn(move |new_value| {
+            let new_children = builder_arc(new_value);
+            if let Ok(mut reactive_children) = reactive_children_ref.write() {
+                *reactive_children = new_children;
+            }
+        });
+
+        self.dirty = true;
+        self
+    }
 }
 
 impl Widget for ColumnWidget {
@@ -690,7 +766,27 @@ impl Widget for ColumnWidget {
         Ok(())
     }
 
+    // fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+    //     if self.dirty {
+    //         ctx.mark_dirty(self.id);
+    //     }
+    //     self.layout_children();
+    //     for child in &mut self.children {
+    //         child.update(ctx)?;
+    //     }
+        
+    //     Ok(())
+    // }
+
     fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        // Check if reactive children have updated
+        if let Ok(mut reactive_children) = self.reactive_children.write() {
+            if !reactive_children.is_empty() {
+                self.children = std::mem::take(&mut *reactive_children);
+                self.dirty = true;
+            }
+        }
+
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
@@ -698,7 +794,7 @@ impl Widget for ColumnWidget {
         for child in &mut self.children {
             child.update(ctx)?;
         }
-        
+
         Ok(())
     }
 

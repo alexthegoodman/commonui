@@ -5,6 +5,7 @@ use crate::media_query::{MediaQuery, ResponsiveWidget};
 use crate::sizing::{Unit, Size};
 use gui_render::primitives::{Rectangle, Shadow};
 use gui_reactive::signal::Signal;
+use std::sync::{Arc, RwLock};
 use std::any::Any;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::HashMap;
@@ -72,6 +73,8 @@ pub struct BoxWidget {
     display_signal: Option<Signal<bool>>,
     // Position type for layout (relative, absolute, etc.)
     position: Position,
+    // Reactive children support
+    reactive_children: Arc<RwLock<Vec<Element>>>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -143,6 +146,7 @@ impl BoxWidget {
             responsive_styles: HashMap::new(),
             display_signal: None,
             position: Position::Relative,
+            reactive_children: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
@@ -247,6 +251,30 @@ impl BoxWidget {
 
     pub fn with_children(mut self, children: Vec<Element>) -> Self {
         self.children = children;
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_reactive_children<T, F>(mut self, signal: Signal<T>, builder: F) -> Self 
+    where 
+        T: Clone + Send + Sync + 'static,
+        F: Fn(&T) -> Vec<Element> + Send + Sync + 'static,
+    {
+        // Build initial children
+        let initial_value = signal.get();
+        let initial_children = builder(&initial_value);
+        self.children = initial_children;
+        
+        // Store builder and signal for updates
+        let reactive_children_ref = Arc::clone(&self.reactive_children);
+        let builder_arc = Arc::new(builder);
+        signal.subscribe_fn(move |new_value| {
+            let new_children = builder_arc(new_value);
+            if let Ok(mut reactive_children) = reactive_children_ref.write() {
+                *reactive_children = new_children;
+            }
+        });
+        
         self.dirty = true;
         self
     }
@@ -362,6 +390,14 @@ impl Widget for BoxWidget {
     fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
         // Apply responsive styles
         self.apply_responsive_styles(ctx);
+        
+        // Check if reactive children have updated
+        if let Ok(mut reactive_children) = self.reactive_children.write() {
+            if !reactive_children.is_empty() {
+                self.children = std::mem::take(&mut *reactive_children);
+                self.dirty = true;
+            }
+        }
         
         if self.dirty {
             ctx.mark_dirty(self.id);
