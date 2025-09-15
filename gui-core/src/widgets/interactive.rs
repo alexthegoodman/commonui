@@ -405,6 +405,8 @@ pub struct InputWidget {
     on_change: Option<Box<dyn Fn(&str) + Send + Sync>>,
     on_submit: Option<Box<dyn Fn(&str) + Send + Sync>>,
     pub dirty: bool,
+    // Shared dirty flag that reactive signals can set
+    reactive_dirty: Arc<RwLock<bool>>,
 }
 
 impl InputWidget {
@@ -429,6 +431,7 @@ impl InputWidget {
             on_change: None,
             on_submit: None,
             dirty: true,
+            reactive_dirty: Arc::new(RwLock::new(false)),
         }
     }
 
@@ -487,6 +490,13 @@ impl InputWidget {
         let text_val = text.into();
         self.cursor_position = text_val.len();
         self.text = Signal::new(text_val);
+        self.dirty = true;
+        self
+    }
+
+    pub fn with_signal(mut self, signal: Signal<String>) -> Self {
+        self.cursor_position = signal.get().len();
+        self.text = signal;
         self.dirty = true;
         self
     }
@@ -638,6 +648,15 @@ impl InputWidget {
 impl Widget for InputWidget {
     fn mount(&mut self) -> Result<(), WidgetError> {
         self.dirty = true;
+        
+        // Setup reactive bindings for text changes
+        let reactive_dirty = self.reactive_dirty.clone();
+        self.text.subscribe_fn(move |_| {
+            if let Ok(mut dirty) = reactive_dirty.write() {
+                *dirty = true;
+            }
+        });
+        
         Ok(())
     }
 
@@ -647,6 +666,14 @@ impl Widget for InputWidget {
     }
 
     fn update(&mut self, ctx: &mut dyn WidgetUpdateContext) -> Result<(), WidgetError> {
+        // Check if reactive signals have changed
+        if let Ok(mut reactive_dirty) = self.reactive_dirty.write() {
+            if *reactive_dirty {
+                *reactive_dirty = false;
+                self.dirty = true;
+            }
+        }
+        
         if self.dirty {
             ctx.mark_dirty(self.id);
         }
